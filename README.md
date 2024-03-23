@@ -36,5 +36,5 @@
 
    Для запуска бота:
    ```python
-   python bot/bot.py
+   python bot_start.py
    ```
