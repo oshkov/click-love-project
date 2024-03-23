@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests"/>
+    <link href="{{ url_for('static', path='/styles.css') }}" rel="stylesheet">
+    <title>Регистрация</title>
+</head>
+<body>
+    <form method="post" action="" enctype="multipart/form-data" id="form">
+
+        <div class="corbots_logo" id="corbots_logo">
+            <h1>КЛИК-БОТ ❤️</h1>
+            <h2>Зарегистрируйся, чтобы смотреть анкеты других людей.</h2>
+        </div>
+
+        <div class="form_block" id="username_form">
+            <h2 class="for_input">👋 Введи своё имя:</h2>
+            <input type="text" placeholder="Имя" id="username_input" class="write" name="name" autocomplete="off">
+            <p class="error" id="error_username"></p>
+            <button id="continue_username" type="button">Продолжить</button>
+        </div>
+
+
+        <div class="form_block" id="age_form">
+            <h2 class="for_input">Укажи свой возраст:</h2>
+            <input type="number" placeholder="Возраст" step="1" min="18" max="80" id="age_input" class="write" name="age" autocomplete="off">
+            <p class="error" id="error_age"></p>
+            <button id="continue_age" type="button">Продолжить</button>
+        </div>
+
+
+        <div class="form_block" id="gender_form">
+            <h2 class="for_input">Укажи свой пол:</h2>
+            <div id="gender_type">
+                <div class="form_radio_btn" id="gender">
+                    <input type="radio" name="gender" value="Мужчина" id="input_male" class="radio">
+                    <label for="input_male">💁‍♂️ Мужской</label>
+                </div>
+                <div class="form_radio_btn" id="gender">
+                    <input type="radio" name="gender" value="Женщина" id="input_female" class="radio">
+                    <label for="input_female">💁‍♀️ Женский</label>
+                </div>
+            </div>
+            <p class="error" id="error_gender"></p>
+            <button id="continue_gender" type="button">Продолжить</button>
+        </div>
+
+
+        <div class="form_block" id="city_form">
+            <h2 class="for_input">Укажи свой город:</h2>
+            <div class="autocomplete">
+                <input type="text" id="city_input" placeholder="Введите город" class="write" name="city" autocomplete="off">
+                <div class="autocomplete-items"></div>
+            </div>
+            <p class="error" id="error_city"></p>
+            <button id="continue_city" type="button">Продолжить</button>
+        </div>
+
+
+        <div class="form_block" id="preferences_form">
+            <h2 class="for_input">❤️ С кем хочешь знакомиться?</h2>
+            <div id="preferences_type">
+                <div class="form_radio_btn" id="prefer">
+                    <input type="radio" id="input_with_male" class="radio" name="preferences" value="С мужчинами">
+                    <label for="input_with_male">С мужчинами</label>
+                </div>
+                <div class="form_radio_btn" id="prefer">
+                    <input type="radio" id="input_with_female" class="radio" name="preferences" value="С женщинами">
+                    <label for="input_with_female">С женщинами</label>
+                </div>
+                <div class="form_radio_btn" id="prefer">
+                    <input type="radio" id="input_with_everyone" class="radio" name="preferences" value="Со всеми">
+                    <label for="input_with_everyone">Со всеми</label>
+                </div>
+            </div>
+            <p class="error" id="error_prefer"></p>
+            <button id="continue_preferences" type="button">Продолжить</button>
+        </div>
+
+
+        <div class="form_block" id="target_form">
+            <h2 class="for_input">🎯 Какие у тебя цели знакомства?</h2>
+            <p>Можно выбрать несколько или оставить пустым</p>
+            <div id="target_type">
+                <div class="form_radio_btn" id="target">
+                    <input type="checkbox" name="target" value="Общение" id="communication" class="radio">
+                    <label for="communication">Общение</label>
+                </div>
+                <div class="form_radio_btn" id="target">
+                    <input type="checkbox" name="target" value="Вечеринка" id="party" class="radio">
+                    <label for="party">Вечеринка</label>
+                </div>
+                <div class="form_radio_btn" id="target">
+                    <input type="checkbox" name="target" value="Встреча 18+" id="18+" class="radio">
+                    <label for="18+">Встреча 18+</label>
+                </div>
+                <div class="form_radio_btn" id="target">
+                    <input type="checkbox" name="target" value="Свидание" id="date" class="radio">
+                    <label for="date">Свидание</label>
+                </div>
+                <div class="form_radio_btn" id="target">
+                    <input type="checkbox" name="target" value="Серьезные отношения" id="serious" class="radio">
+                    <label for="serious">Серьезные отношения</label>
+                </div>
+            </div>
+            <p class="error" id="error_target"></p>
+            <button id="continue_target" type="button">Продолжить</button>
+        </div>
+
+
+        <div class="form_block" id="photo_form">
+            <h2 class="for_input">📷 Загрузите свои фото</h2>
+            <p>Максимум 5 фото</p>
+            <label class="input-file">
+                <input id="photo_input" type="file" name="photos" accept="image/*" multiple>
+                <span class="input-file-btn" id="input-file-btn">Загрузить</span>
+            </label>
+            <p class="error" id="error_photo"></p>
+            <div id="preview_imgs"></div>
+            <button id="continue_photo" type="button">Продолжить</button>
+        </div>
+
+        
+        <div class="form_block" id="about_form">
+            <h2 class="for_input">Введи информацию о себе:</h2>
+            <p>Необязательное поле</p>
+            <textarea placeholder="О себе" id="about_input" class="write" rows="10" maxlength="300" name="about" autocomplete="off"></textarea>
+            <p class="error" id="error_about"></p>
+
+            <div class="agreement_block">
+                <input type="checkbox" id="agreement" class="agreement" name="agreement" > 
+                <label for="agreement" class="agreement_text" id="agreement_text">Я принимаю <a href="https://bots-corp.ru/" target="_blank"> пользовательское соглашение, политику конфиденциальности </a> и подтверждаю, что мне есть 18 лет.</label>    
+            </div>
+            <p class="error" id="error_agreement"></p>
+
+            <button id="registrate" type="button">Зарегистрироваться</button>
+        </div>
+    </form>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="http://cdn.jsdelivr.net/npm/suggestions-jquery@22.6.0/dist/js/jquery.suggestions.min.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="{{ url_for('static', path= '/script.js') }}"></script>
+    <script src="{{ url_for('static', path= '/functions.js') }}"></script>
+</body>
+</html>
