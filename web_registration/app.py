@@ -65,13 +65,9 @@ async def aaaaaaaaa(
                 shutil.copyfileobj(photo.file, buffer)
             num += 1
 
-        # Дата создания анкеты
-        creation_date = time.strftime('%d.%m.%Y / %X')
-
         # Если анкета уже была, то ее данные обновляются
         if user_in_db:
             # Обновление данных в бд
-            user_in_db.creation_date = creation_date
             user_in_db.status = 'open'
             user_in_db.name = name
             user_in_db.gender = gender
@@ -109,7 +105,7 @@ async def aaaaaaaaa(
         # В случае если анкеты не было - она создается
         else:
             user_info = FormModel(
-                creation_date = creation_date,
+                creation_date = None,
                 id = user_id,
                 username = username,
                 status = 'open',

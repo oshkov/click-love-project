@@ -1,5 +1,6 @@
 .env
 photos/*.jpeg
+bot/images/*.jpeg
 __pycache__
 database_asyncpg.py
 database_sqlite3.py

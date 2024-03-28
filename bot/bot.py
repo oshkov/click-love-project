@@ -5,14 +5,15 @@ from aiogram.fsm.context import FSMContext
 from bot.database import DataBase
 import bot.keyboards as keyboards
 import bot.messages as messages
+import bot.admin_panel as admin_panel
 import config
 
 import time
 
 
-
 bot = Bot(token=config.BOT_TOKEN)
 dp = Dispatcher()
+dp.include_routers(admin_panel.router_admin)
 print('Бот запущен')
 
 
@@ -22,9 +23,8 @@ database = DataBase(config.DATABASE_URL)
 # Команда /start
 @dp.message(F.text.contains("/start"))
 async def accept_agreement_handler(message: Message, state: FSMContext):
+    # Сброс состояния при его налиции
     await state.clear()
-
-    start_time = time.time()
 
     global start_message
     start_message = await message.answer(
@@ -32,13 +32,10 @@ async def accept_agreement_handler(message: Message, state: FSMContext):
         reply_markup= keyboards.check_bot
     )
 
-    end_time = time.time()
-    execution_time = end_time - start_time
-    print(f"Время выполнения функции: {execution_time} секунд")
-
 # Проверка на бота
 @dp.callback_query(F.data.contains('check_bot'))
 async def check_bot_handler(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
     await state.clear()
 
     try:
@@ -81,40 +78,11 @@ async def check_bot_handler(callback: CallbackQuery, state: FSMContext):
 
     except Exception as error:
         print(f'start_message error: {error}')
-
-# # Проверка анкеты при регистрации
-# @dp.message(F.web_app_data)
-# async def accept_agreement(message: Message, state: FSMContext):
-
-#     # Добавление информации о профиле в state.data
-#     data_json = json.loads(message.web_app_data.data)
-#     await state.update_data(data_json= data_json)
-#     print(data_json)
-
-#     # # Удаление клавиатуры
-#     # await delete_reply_keyboard(message)
-
-#     # Удаление сообщение если анкета пересоздается
-#     try:
-#         await bot.delete_message(message.chat.id, creation_form_message.message_id)
-#     except: pass
-
-#     await message.answer(
-#         'Осталось совсем немного, отправьте фото для вашей анкеты',
-#         show_alert=True
-#         )
-    
-#     await state.set_state(Form.add_photo)
-    
-#     # # Вывод анкеты на проверку
-#     # await message.answer(
-#     #     await PREVIEW_FORM_TEXT(data_json),
-#     #     reply_markup= preview_form_keyboard
-#     #     )
     
 # Команда /menu
 @dp.message(F.text == '/menu')
 async def menu_command_handler(message: Message, state: FSMContext):
+    # Сброс состояния при его налиции
     await state.clear()
 
     # Создание сессии
@@ -131,6 +99,7 @@ async def menu_command_handler(message: Message, state: FSMContext):
 # Пересоздание профиля
 @dp.callback_query(F.data.contains('menu'))
 async def menu_handler(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
     await state.clear()
 
     # Создание сессии
@@ -150,6 +119,7 @@ async def menu_handler(callback: CallbackQuery, state: FSMContext):
 # Просмотр своей анкеты
 @dp.callback_query(F.data == 'my_form')
 async def my_form_handler(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
     await state.clear()
 
     try:
@@ -176,12 +146,81 @@ async def my_form_handler(callback: CallbackQuery, state: FSMContext):
     except Exception as error:
         print(f'my_form error: {error}')
 
+# Команда /myprofile
+@dp.message(F.text == '/myprofile')
+async def myprofile_command_handler(message: Message, state: FSMContext):
+    # Сброс состояния при его налиции
+    await state.clear()
+
+    try:
+        # Создание сессии
+        async for session in database.get_session():
+            form_info = await database.get_form_information(session, message.from_user.id)
+
+            name = form_info.name
+            age = form_info.age
+            city = form_info.city
+            about = form_info.about
+            target = form_info.target
+            photo = form_info.photos[0]
+
+        await message.answer_photo(
+            photo= FSInputFile(f'photos/{photo}'),
+            caption= await messages.FORM_TEXT(name, age, city, about, target),
+            parse_mode= 'HTML',
+            reply_markup= keyboards.under_menu_keyboard
+        )
+
+    except Exception as error:
+        print(f'myprofile_command_handler error: {error}')
+
+# Команда /forms
+@dp.message(F.text == '/forms')
+async def forms_command_handler(message: Message, state: FSMContext):
+    # Сброс состояния при его налиции
+    await state.clear()
+
+    # Создание сессии
+    async for session in database.get_session():
+        try:
+            # Получение id подходящей по параметрам анкеты
+            my_form = await database.get_form_information(session, message.from_user.id)
+            form = await database.get_form_id_by_filters(session, my_form)
+
+            if form is not None:
+                print(form.id)
+
+                # Проверка на число фото больше одного
+                if len(form.photos) != 1:
+                    more_photo = True
+                else:
+                    more_photo = False
+
+                await message.answer_photo(
+                    photo= FSInputFile(f'photos/{form.photos[0]}'),
+                    caption= await messages.FORM_TEXT(form.name, form.age, form.city, form.about, form.target),
+                    parse_mode='HTML',
+                    reply_markup= await keyboards.form_keyboard(form.id, more_photo= more_photo)
+                )
+
+            # Если нет подходящей анкеты
+            else:
+                await message.answer(
+                    messages.NO_FORMS,
+                    show_alert= True
+                )
+
+        except Exception as error:
+            print(f'forms_command_handler error: {error}')
+            await message.answer(
+                f'Ошибка: {error}'
+            )
+
 # Изменение статуса анкеты
 @dp.callback_query(F.data == 'update_form_status')
 async def change_status_form_handler(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
     await state.clear()
-
-    start_time = time.time()
 
     # Создание сессии
     async for session in database.get_session():
@@ -215,18 +254,14 @@ async def change_status_form_handler(callback: CallbackQuery, state: FSMContext)
         # Если анкета не подтверждена
         elif form.status == 'wait':
             await callback.answer(
-                'Ваша анкета еще не подтверждена',
+                messages.WAITED_FORM,
                 show_alert= True
             )
-
-    end_time = time.time()
-    execution_time = end_time - start_time
-    print(f"Время выполнения функции: {execution_time} секунд")
 
 # Бонусы
 @dp.callback_query(F.data == 'bonuses')
 async def bonuses_handler(callback: CallbackQuery, state: FSMContext):
-
+    # Сброс состояния при его налиции
     await state.clear()
 
     await callback.answer(
@@ -237,6 +272,7 @@ async def bonuses_handler(callback: CallbackQuery, state: FSMContext):
 # Пересоздание анкеты
 @dp.callback_query(F.data == 'recreate_form')
 async def recreate_form_handler(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
     await state.clear()
 
     await callback.message.edit_media(
@@ -251,6 +287,7 @@ async def recreate_form_handler(callback: CallbackQuery, state: FSMContext):
 # Проверка юзернейма
 @dp.callback_query(F.data.contains('check_username'))
 async def check_username_handler(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
     await state.clear()
 
     # Создание сессии
@@ -286,6 +323,7 @@ async def check_username_handler(callback: CallbackQuery, state: FSMContext):
 # Вывод анкеты при лайке
 @dp.callback_query(F.data.contains('check_form_who_liked_me'))
 async def check_form_who_liked_me(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
     await state.clear()
 
     # Получение id анкеты, того кто лайкнул
@@ -302,32 +340,24 @@ async def check_form_who_liked_me(callback: CallbackQuery, state: FSMContext):
         try:
             form = await database.get_form_information(session, form_id)
 
-            if mutual == 'mutual':
-                name = form.name
-                age = form.age
-                city = form.city
-                about = form.about
-                target = form.target
-                photo = form.photos[0]
-                url = form.username
+            name = form.name
+            age = form.age
+            city = form.city
+            about = form.about
+            target = form.target
+            photo = form.photos[0]
 
+            if mutual == 'mutual':
                 await callback.message.edit_media(
                     media= InputMediaPhoto(
                         media= FSInputFile(f'photos/{photo}'),
-                        caption= f'Взаимный лайк ❤️\n\n{await messages.FORM_TEXT(name, age, city, about, target)}\n\nНачинайте общение: @{url}',
+                        caption= await messages.MUTUAL_LIKE_PREVIEW(form),
                         parse_mode= 'HTML'
                     ),
                     reply_markup= None
                 )
 
             else:
-                name = form.name
-                age = form.age
-                city = form.city
-                about = form.about
-                target = form.target
-                photo = form.photos[0]
-
                 # Проверка на число фото больше одного
                 if len(form.photos) != 1:
                     more_photo = True
@@ -349,6 +379,7 @@ async def check_form_who_liked_me(callback: CallbackQuery, state: FSMContext):
 # Вывод анкет при поиске
 @dp.callback_query(F.data.contains('who_liked_me'))
 async def who_liked_me(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
     await state.clear()
 
     mark = callback.data.split()[1]
@@ -373,7 +404,7 @@ async def who_liked_me(callback: CallbackQuery, state: FSMContext):
                 await bot.send_photo(
                     chat_id= form_id,
                     photo= FSInputFile('bot/design/mutual_like.jpeg'),
-                    caption= 'У вас взаимный лайк 😍',
+                    caption= messages.MUTUAL_LIKE,
                     reply_markup= await keyboards.show_form_keyboard(callback.from_user.id, 'mutual')
                 )
 
@@ -389,8 +420,8 @@ async def who_liked_me(callback: CallbackQuery, state: FSMContext):
 # Вывод анкет при поиске
 @dp.callback_query(F.data == 'check_forms')
 async def check_forms_handler(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
     await state.clear()
-    start_time = time.time()
 
     # Создание сессии
     async for session in database.get_session():
@@ -421,9 +452,10 @@ async def check_forms_handler(callback: CallbackQuery, state: FSMContext):
                     # Если сообщение не удалилось, то пустой ответ чтобы кнопка не мигала
                     await callback.answer()
 
+            # Если нет подходящей анкеты
             else:
                 await callback.answer(
-                    'Подходящих для вас анкет, к сожалению, нет',
+                    messages.NO_FORMS,
                     show_alert= True
                 )
 
@@ -447,13 +479,10 @@ async def check_forms_handler(callback: CallbackQuery, state: FSMContext):
         #         )
         # except: pass
 
-    end_time = time.time()
-    execution_time = end_time - start_time
-    print(f"Время выполнения функции: {execution_time} секунд")
-
 # Лайк/дизлайк
 @dp.callback_query(F.data.contains('rate'))
 async def like_dislike_handler(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
     await state.clear()
 
     # Создание сессии
@@ -475,7 +504,7 @@ async def like_dislike_handler(callback: CallbackQuery, state: FSMContext):
                 await bot.send_photo(
                     chat_id= form_id,
                     photo= FSInputFile('bot/design/like.jpeg'),
-                    caption= 'Ваша анкета понравилась одному человеку 🤗',
+                    caption= messages.YOU_LIKED,
                     reply_markup= await keyboards.show_form_keyboard(callback.from_user.id)
                 )
 
@@ -496,6 +525,7 @@ async def like_dislike_handler(callback: CallbackQuery, state: FSMContext):
 # Жалоба
 @dp.callback_query(F.data.contains('warn'))
 async def warn_handler(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
     await state.clear()
 
     # Создание сессии
@@ -503,12 +533,27 @@ async def warn_handler(callback: CallbackQuery, state: FSMContext):
         
         try:
             form_id = callback.data.split()[1]
-            await database.make_warn(session, form_id)
+            new_warns_amount = await database.make_warn(session, form_id)
 
             await callback.answer(
                 messages.MAKE_WARN,
                 show_alert= True
             )
+
+            try:
+                # Если количество жалоб = 3, то аккаунт замораживается и отправляется на проверку
+                if new_warns_amount == 3:
+                    # Уведомление админам
+                    await database.notify_admins(session, bot, '❕ +1 анкета на проверку')
+
+                    # Уведомление пользователю
+                    await bot.send_photo(
+                        chat_id= form_id,
+                        photo= FSInputFile('bot/design/blocked.jpeg'),
+                        caption= messages.BLOCKED,
+                        parse_mode= 'html'
+                    )
+            except: pass
 
             try:
                 await bot.delete_message(callback.message.chat.id, callback.message.message_id)
@@ -523,6 +568,7 @@ async def warn_handler(callback: CallbackQuery, state: FSMContext):
 # Листание фото
 @dp.callback_query(F.data.contains('check_photo'))
 async def check_photo_handler(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
     await state.clear()
 
     # Создание сессии
@@ -551,13 +597,6 @@ async def check_photo_handler(callback: CallbackQuery, state: FSMContext):
 
         except Exception as error:
             print(f'check photo error: {error}')
-
-
-
-# Обработка прочих сообщений
-@dp.message()
-async def echo(message: Message):
-    await message.answer('Воспользуйтесь командами или клавиатурой, а если что-то пошло не так, воспользуйся командой /start, чтобы перезапустить бота')
 
 
 # Запуск бота

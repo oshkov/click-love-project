@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, ARRAY, Text
+from sqlalchemy import Column, Integer, ARRAY, Text, TIMESTAMP
 from sqlalchemy.ext.declarative import declarative_base
+import datetime
+import pytz
 
 
 Base = declarative_base()
@@ -8,7 +10,7 @@ Base = declarative_base()
 class FormModel(Base):
     __tablename__ = 'forms'
 
-    creation_date = Column(Text)
+    creation_date = Column(TIMESTAMP(timezone=True), default=datetime.datetime.now(pytz.timezone('Europe/Moscow')))
     id = Column(Text, primary_key=True)
     username = Column(Text)
     status = Column(Text)
@@ -27,7 +29,7 @@ class FormModel(Base):
 class UserModel(Base):
     __tablename__ = 'users'
 
-    enter = Column(Text)
+    enter = Column(TIMESTAMP(timezone=True), default=datetime.datetime.now(pytz.timezone('Europe/Moscow')))
     id = Column(Text, primary_key=True)
     username = Column(Text)
     name = Column(Text)
@@ -46,7 +48,7 @@ class UserModel(Base):
 class ActionModel(Base):
     __tablename__ = 'actions'
 
-    creation_date = Column(Text)
+    creation_date = Column(TIMESTAMP(timezone=True), default=datetime.datetime.now(pytz.timezone('Europe/Moscow')))
     id_creator = Column(Text, primary_key=True)
     id_receiver = Column(Text)
     status = Column(Text)

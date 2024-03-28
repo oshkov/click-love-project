@@ -4,7 +4,6 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import select, and_, not_
 import config
 from models import UserModel, FormModel, ActionModel
-import time
 
 
 class DataBase:
@@ -32,10 +31,9 @@ class DataBase:
 
             # Создание записи в бд, если ее не было
             if user_in_db is None:
-                join_time = time.strftime('%d.%m.%Y / %X')
 
                 user_info = UserModel(
-                    enter = join_time,
+                    enter = None,
                     id = str(message.from_user.id),
                     username = message.from_user.username,
                     name = message.from_user.first_name,
@@ -141,21 +139,29 @@ class DataBase:
 
             # Фильтры: 
             # 1) По моим предпочтениям
-            # 2) по городу
-            # 3) совпадение предпочтений
-            # 4) открытость анкеты
+            # 2) По городу
+            # 3) Совпадение предпочтений
+            # 4) Открытость анкеты
             result = await session.execute(
                 select(FormModel)
                     .where(
                         and_(
+                            # По моим предпочтениям
                             FormModel.gender.in_(my_preferences),
+
+                            # По городу
                             FormModel.city == my_city,
+
+                            # Совпадение предпочтений
                             FormModel.preferences.in_(need_preferences),
+
+                            # Открытость анкеты
                             FormModel.status == 'open'
-                            ),
+                        ),
                     )
                     .where(
                         not_(
+                            # Исключение своего id
                             FormModel.id.in_(marks_list)
                         )
                     )
@@ -171,10 +177,8 @@ class DataBase:
     # Создание оценки
     async def like_or_dislike_form(self, session, user_id, form_id, mark):
         try:
-            creation_time = time.strftime('%d.%m.%Y / %X')
-
             new_action = ActionModel(
-                creation_date = creation_time,
+                creation_date = None,
                 id_creator = str(user_id),
                 id_receiver = str(form_id),
                 status = mark,
@@ -202,11 +206,125 @@ class DataBase:
             if form.warns == 3:
                 form.status = 'blocked'
 
-                # УВЕДОМЛЕНИЕ АДМИНАМ
-                # УВЕДОМЛЕНИЕ ПОЛЬЗОВАТЕЛЮ
+            # Добавление данных в бд и сохранение
+            await session.commit()
+
+            return form.warns
+
+        except Exception as error:
+            print(f'make_warn() error: {error}')
+
+
+    # Сообщение админам в телеграм о создании новой анкеты
+    async def notify_admins(self, session, bot, message_text):
+        try:
+            # Выполняем запрос для получения id пользователей, у которых admin равно 1
+            result = await session.execute(select(UserModel.id).where(UserModel.admin == 1))
+            admin_ids = [row for row in result.scalars()]
+
+            # Рассылка админам
+            for id in admin_ids:
+                await bot.send_message(
+                    id,
+                    message_text
+                )
+
+        except Exception as error:
+            print(f'notify_admins() error: {error}')
+
+    # Проверка на админа
+    async def check_admin(self, session, user_id):
+        try:
+            user = await session.get(UserModel, str(user_id))
+
+            if user.admin == 1:
+                return True
+            else:
+                return False
+
+        except Exception as error:
+            print(f'check_admin() error: {error}')
+
+
+    # Рассылка сообщения всем пользователям
+    async def send_message_to_everyone(self, session, bot, text, entities, photo= None, keyboard=None, parse_mode=None):
+        try:
+            users = await session.execute(select(UserModel.id))
+
+            # Список всех id пользователей
+            user_ids = [row for row in users.scalars()]
+
+            if photo:
+                for id in user_ids:
+                    try:
+                        await bot.send_photo(chat_id=id, photo=photo, caption=text, caption_entities=entities, reply_markup=keyboard, parse_mode=parse_mode)
+                        print(f'Рассылка с фото: {id}')
+
+                    # Исключение если человек заблочил бота
+                    except Exception as error:
+                        print(error)
+                        # print(f'{id} заблочил бота')
+
+            else:
+                for id in user_ids:
+                    try:
+                        await bot.send_message(chat_id=id, text=text, entities=entities, disable_web_page_preview=True, parse_mode=parse_mode)
+                        print(f'Рассылка без фото: {id}')
+
+                    # Исключение если человек заблочил бота
+                    except Exception as error:
+                        print(f'{id} заблочил бота')
+
+        except Exception as error:
+            print(f'send_message_to_everyone() error: {error}')
+
+
+    # Получение статистики бота
+    async def get_stats(self, session):
+        try:
+            users = await session.execute(select(UserModel))
+            users_amount = len(users.fetchall())
+
+            forms = await session.execute(select(FormModel))
+            forms_amount = len(forms.fetchall())
+
+            message = f'<b>📋 Статистика</b>\n\nВсего пользователей: <b>{users_amount}</b>\nВсего анкет: <b>{forms_amount}</b>'
+            return message
+
+        except Exception as error:
+            print(f'get_stats() error: {error}')
+
+
+    # Получение статистики бота
+    async def get_form_for_verification(self, session):
+        try:
+            waited_blocked_forms = await session.execute(
+                select(FormModel)
+                    .where(
+                        FormModel.status.in_(['blocked', 'wait']),
+                    )
+                )
+            forms = [row for row in waited_blocked_forms.scalars()]
+
+            return forms[0]
+
+        except Exception as error:
+            print(f'get_form_for_check() error: {error}')
+
+
+    # Подтверждение анкеты
+    async def update_status_form(self, session, form_id, status):
+        try:
+            form = await session.get(FormModel, form_id)
+            form.status = status
+
+            # Если анкеты была забанена, то пользователь тоже блокируется
+            if status == 'banned':
+                user = await session.get(UserModel, form_id)
+                user.ban_status = status
 
             # Добавление данных в бд и сохранение
             await session.commit()
 
         except Exception as error:
-            print(f'make_warn() error: {error}')
+            print(f'update_status_form() error: {error}')

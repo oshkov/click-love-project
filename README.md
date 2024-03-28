@@ -15,7 +15,6 @@
 - JavaScript
 - SQLalchemy
 - PostgreSQL (async)
-- TelegramAPI (Для передачи данных в бота)
 - Dadata API (Для поиска всех городов мира)
 
 #### Возможности сайта
