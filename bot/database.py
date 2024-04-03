@@ -1,9 +1,9 @@
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import select, and_, not_
-import config
-from models import UserModel, FormModel, ActionModel
+import datetime
+import pytz
+from models import UserModel, ProfileModel, ActionModel
 
 
 class DataBase:
@@ -32,6 +32,9 @@ class DataBase:
             # Создание записи в бд, если ее не было
             if user_in_db is None:
 
+                year_sub = datetime.datetime.now(pytz.timezone('Europe/Moscow')) + datetime.timedelta(days=365)
+                year_sub_status = 'Годовая подписка'
+
                 user_info = UserModel(
                     enter = None,
                     id = str(message.from_user.id),
@@ -40,8 +43,8 @@ class DataBase:
                     lastname = message.from_user.last_name,
                     last_action = None,
                     ban_status = None,
-                    sub_status = None,
-                    sub_end_date = None,
+                    sub_status = year_sub_status,
+                    sub_end_date = year_sub,
                     referrals = 0,
                     invited_by = None,
                     agreement = 0,
@@ -76,23 +79,23 @@ class DataBase:
 
 
     # Получение данных об анкете пользователя
-    async def get_form_information(self, session, user_id):
+    async def get_profile_information(self, session, user_id):
 
         try:
-            form = await session.get(FormModel, str(user_id))
+            profile = await session.get(ProfileModel, str(user_id))
 
             # Возвращается объект анкеты, в случае отсутствия None
-            return form
+            return profile
 
         except Exception as error:
-            print(f'get_form_information() error: {error}')
+            print(f'get_profile_information() error: {error}')
 
 
-    # Обновление статуса анкеты
-    async def update_status(self, session, form, new_status):
+    # Обновление статуса анкеты из меню
+    async def update_status(self, session, profile, new_status):
 
         try:
-            form.status = new_status
+            profile.status = new_status
 
             # Добавление данных в бд и сохранение
             await session.commit()
@@ -102,12 +105,12 @@ class DataBase:
 
 
     # Поиск подходящей анкеты
-    async def get_form_id_by_filters(self, session, my_form):
+    async def get_profile_id_by_filters(self, session, my_profile):
         try:
-            my_id = my_form.id
-            my_city = my_form.city
-            my_preferences = my_form.preferences
-            my_gender = my_form.gender
+            my_id = my_profile.id
+            my_city = my_profile.city
+            my_preferences = my_profile.preferences
+            my_gender = my_profile.gender
 
             if my_preferences == 'С мужчинами':
                 my_preferences = ['Мужчина']
@@ -143,26 +146,26 @@ class DataBase:
             # 3) Совпадение предпочтений
             # 4) Открытость анкеты
             result = await session.execute(
-                select(FormModel)
+                select(ProfileModel)
                     .where(
                         and_(
                             # По моим предпочтениям
-                            FormModel.gender.in_(my_preferences),
+                            ProfileModel.gender.in_(my_preferences),
 
                             # По городу
-                            FormModel.city == my_city,
+                            ProfileModel.city == my_city,
 
                             # Совпадение предпочтений
-                            FormModel.preferences.in_(need_preferences),
+                            ProfileModel.preferences.in_(need_preferences),
 
                             # Открытость анкеты
-                            FormModel.status == 'open'
+                            ProfileModel.status == 'open'
                         ),
                     )
                     .where(
                         not_(
-                            # Исключение своего id
-                            FormModel.id.in_(marks_list)
+                            # Исключение уже просмотренных анкет и своего id 
+                            ProfileModel.id.in_(marks_list)
                         )
                     )
                 )
@@ -171,16 +174,16 @@ class DataBase:
             return result_list[0]
 
         except Exception as error:
-            print(f'get_form_id_by_filters() error: {error}')
+            print(f'get_profile_id_by_filters() error: {error}')
 
 
     # Создание оценки
-    async def like_or_dislike_form(self, session, user_id, form_id, mark):
+    async def like_or_dislike_profile(self, session, user_id, profile_id, mark):
         try:
             new_action = ActionModel(
                 creation_date = None,
                 id_creator = str(user_id),
-                id_receiver = str(form_id),
+                id_receiver = str(profile_id),
                 status = mark,
                 message = None
             )
@@ -192,24 +195,24 @@ class DataBase:
             await session.commit()
 
         except Exception as error:
-            print(f'like_or_dislike_form() error: {error}')
+            print(f'like_or_dislike_profile() error: {error}')
 
 
     # Создание жалобы
-    async def make_warn(self, session, form_id):
+    async def make_warn(self, session, profile_id):
         try:
-            form = await session.get(FormModel, form_id)
+            profile = await session.get(ProfileModel, profile_id)
 
-            form.warns += 1
+            profile.warns += 1
 
             # Если набирается 3 жалобы на анкете, то она блокируется и отправляется на проверку админам
-            if form.warns == 3:
-                form.status = 'blocked'
+            if profile.warns == 3:
+                profile.status = 'blocked'
 
             # Добавление данных в бд и сохранение
             await session.commit()
 
-            return form.warns
+            return profile.warns
 
         except Exception as error:
             print(f'make_warn() error: {error}')
@@ -285,10 +288,10 @@ class DataBase:
             users = await session.execute(select(UserModel))
             users_amount = len(users.fetchall())
 
-            forms = await session.execute(select(FormModel))
-            forms_amount = len(forms.fetchall())
+            profiles = await session.execute(select(ProfileModel))
+            profiles_amount = len(profiles.fetchall())
 
-            message = f'<b>📋 Статистика</b>\n\nВсего пользователей: <b>{users_amount}</b>\nВсего анкет: <b>{forms_amount}</b>'
+            message = f'<b>📋 Статистика</b>\n\nВсего пользователей: <b>{users_amount}</b>\nВсего анкет: <b>{profiles_amount}</b>'
             return message
 
         except Exception as error:
@@ -296,35 +299,59 @@ class DataBase:
 
 
     # Получение статистики бота
-    async def get_form_for_verification(self, session):
+    async def get_profile_for_verification(self, session):
         try:
-            waited_blocked_forms = await session.execute(
-                select(FormModel)
+            waited_blocked_profiles = await session.execute(
+                select(ProfileModel)
                     .where(
-                        FormModel.status.in_(['blocked', 'wait']),
+                        ProfileModel.status.in_(['blocked', 'wait']),
                     )
                 )
-            forms = [row for row in waited_blocked_forms.scalars()]
+            profiles = [row for row in waited_blocked_profiles.scalars()]
 
-            return forms[0]
+            return profiles[0]
 
         except Exception as error:
-            print(f'get_form_for_check() error: {error}')
+            print(f'get_profile_for_verification() error: {error}')
 
 
-    # Подтверждение анкеты
-    async def update_status_form(self, session, form_id, status):
+    # Изсенение статуса анкеты из админки
+    async def update_status_profile(self, session, profile_id, status):
         try:
-            form = await session.get(FormModel, form_id)
-            form.status = status
+            profile = await session.get(ProfileModel, profile_id)
+            profile.status = status
 
             # Если анкеты была забанена, то пользователь тоже блокируется
             if status == 'banned':
-                user = await session.get(UserModel, form_id)
+                user = await session.get(UserModel, profile_id)
                 user.ban_status = status
 
             # Добавление данных в бд и сохранение
             await session.commit()
 
         except Exception as error:
-            print(f'update_status_form() error: {error}')
+            print(f'update_status_profile() error: {error}')
+
+
+    # 
+    async def get_users_without_profile(self, session):
+        try:
+            # Получение списка всех анкет
+            profiles = await session.execute(select(ProfileModel.id))
+            profile_ids = [row for row in profiles.scalars()]
+
+
+            users_without_profile = await session.execute(
+                select(UserModel)
+                    .where(
+                        not_(
+                            UserModel.id.in_(profile_ids),
+                        )
+                    )
+                )
+            users_without_profile = [row for row in users_without_profile.scalars()]
+
+            return users_without_profile
+
+        except Exception as error:
+            print(f'get_users_without_profile() error: {error}')

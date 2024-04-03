@@ -1,5 +1,5 @@
 from aiogram import Bot, F, Router
-from aiogram.types import Message, CallbackQuery, FSInputFile
+from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
@@ -222,7 +222,6 @@ async def dont_send_photo(callback: CallbackQuery, state: FSMContext):
     # Сброс состояния
     await state.clear()
 
-
 # Статистика
 @router_admin.message(F.text == '📋 Статистика')
 async def stats_handler(message: Message, state: FSMContext):
@@ -256,10 +255,9 @@ async def stats_handler(message: Message, state: FSMContext):
     except Exception as error:
         print(f'stats error: {error}')
 
-
 # Проверка созданных/заблокированных анкет
 @router_admin.message(F.text == '🔍 Начать проверку')
-async def verification_forms_handler(message: Message, state: FSMContext):
+async def verification_profiles_handler(message: Message, state: FSMContext):
     # Сброс состояния при его наличии
     await state.clear()
 
@@ -271,40 +269,45 @@ async def verification_forms_handler(message: Message, state: FSMContext):
             if await database.check_admin(session, message.from_user.id) == True:
 
                 # Получение анкеты для проверки
-                form_for_verification = await database.get_form_for_verification(session)
+                profile_for_verification = await database.get_profile_for_verification(session)
 
             else:
                 pass
 
 
-        if form_for_verification is not None:
+        if profile_for_verification is not None:
 
-            form_id = form_for_verification.id
-            username = form_for_verification.username
-            name = form_for_verification.name
-            age = form_for_verification.age
-            city = form_for_verification.city
-            about = form_for_verification.about
-            target = form_for_verification.target
-            photo = form_for_verification.photos[0]
+            profile_id = profile_for_verification.id
+            username = profile_for_verification.username
+            name = profile_for_verification.name
+            age = profile_for_verification.age
+            city = profile_for_verification.city
+            about = profile_for_verification.about
+            target = profile_for_verification.target
+            photo = profile_for_verification.photos[0]
 
+            # Проверка на число фото больше одного
+            if len(profile_for_verification.photos) != 1:
+                more_photo = True
+            else:
+                more_photo = False
 
             # Проверка созданной анкеты
-            if form_for_verification.status == 'wait':
+            if profile_for_verification.status == 'wait':
                 await message.answer_photo(
                     photo= FSInputFile(f'photos/{photo}'),
-                    caption= await messages.FORM_TEXT(name, age, city, about, target),
+                    caption= await messages.PROFILE_TEXT(name, age, city, about, target),
                     parse_mode= 'HTML',
-                    reply_markup= await keyboards.check_waited_forms(form_id, username)
+                    reply_markup= await keyboards.check_waited_profiles(profile_id, username, more_photo= more_photo)
                 )
 
             # Проверка заблокированной анкеты
-            elif form_for_verification.status == 'blocked':
+            elif profile_for_verification.status == 'blocked':
                 await message.answer_photo(
                     photo= FSInputFile(f'photos/{photo}'),
-                    caption= await messages.FORM_TEXT(name, age, city, about, target),
+                    caption= await messages.PROFILE_TEXT(name, age, city, about, target),
                     parse_mode= 'HTML',
-                    reply_markup= await keyboards.check_blocked_forms(form_id)
+                    reply_markup= await keyboards.check_blocked_profiles(profile_id, more_photo= more_photo)
                 )
         
         else:
@@ -312,22 +315,66 @@ async def verification_forms_handler(message: Message, state: FSMContext):
             return
 
     except Exception as error:
-        print(f'stats_handler error: {error}')
+        print(f'verification_profiles_handler error: {error}')
+
+# Листание фото
+@router_admin.callback_query(F.data.contains('photo_verification'))
+async def photo_verification_handler(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
+    await state.clear()
+
+    print(callback.data)
+
+    profile_id = callback.data.split()[1]
+    photo_num = int(callback.data.split()[2])
+    verification = callback.data.split()[3]
+
+    # Создание сессии
+    try:
+        async for session in database.get_session():
+            profile = await database.get_profile_information(session, profile_id)
+    except Exception as error:
+        print(f'photo_verification_handler() Session error: {error}')
+
+    try:
+        # Если есть еще фото, то порядковый номер увеличивается
+        if len(profile.photos) == photo_num + 1:
+            next_photo_num = 0
+        else:
+            next_photo_num = photo_num + 1
+
+        # Выбор клавиатуре в зависимости от проверки
+        if verification == 'wait':
+            keyboard = await keyboards.check_waited_profiles(profile_id, profile.username, more_photo= True, next_photo_num= next_photo_num)
+        elif verification == 'blocked':
+            keyboard = await keyboards.check_blocked_profiles(profile_id, more_photo= True, next_photo_num= next_photo_num)
+
+        await callback.message.edit_media(
+            media= InputMediaPhoto(
+                media= FSInputFile(f'photos/{profile.photos[photo_num]}'),
+                caption= await messages.PROFILE_TEXT(profile.name, profile.age, profile.city, profile.about, profile.target),
+                parse_mode='HTML'
+            ), 
+            reply_markup= keyboard
+        )
+    except Exception as error:
+        print(f'photo_verification_handler() error: {error}')
+
 
 # Подтверждение созданной анкеты 
-@router_admin.callback_query(F.data.contains('accept_form'))
-async def accept_form_handler(callback: CallbackQuery, state: FSMContext):
+@router_admin.callback_query(F.data.contains('accept_profile'))
+async def accept_profile_handler(callback: CallbackQuery, state: FSMContext):
     # Сброс состояния при его наличии
     await state.clear()
 
     # Получение id анкеты
-    form_id = callback.data.split()[1]
+    profile_id = callback.data.split()[1]
 
     try:
         # Создание сессии
         async for session in database.get_session():
             # Изменение статуса анкеты
-            await database.update_status_form(session, form_id, 'open')
+            await database.update_status_profile(session, profile_id, 'open')
 
 
         # Подписание анкеты 
@@ -340,32 +387,32 @@ async def accept_form_handler(callback: CallbackQuery, state: FSMContext):
         try:
             # Отправка человеку сообщения о подтвержденной анкете
             await bot.send_photo(
-                chat_id= form_id,
-                photo= FSInputFile('bot/design/accepted_form.jpeg'),
+                chat_id= profile_id,
+                photo= FSInputFile('bot/design/accepted_profile.jpeg'),
                 caption= 'Ваша анкета подтверждена!\n\nНачинайте занкомиться 😍',
-                reply_markup= keyboards.under_menu_keyboard
+                reply_markup= keyboards.start_keyboard
             )
         except:
             pass
 
     except Exception as error:
-        print(f'accept_form_handler error: {error}')
+        print(f'accept_profile_handler error: {error}')
 
 # Отклонение созданной анкеты 
-@router_admin.callback_query(F.data.contains('cancel_form'))
-async def cancel_form_handler(callback: CallbackQuery, state: FSMContext):
+@router_admin.callback_query(F.data.contains('cancel_profile'))
+async def cancel_profile_handler(callback: CallbackQuery, state: FSMContext):
     # Сброс состояния при его наличии
     await state.clear()
 
     # Получение id и username анкеты
-    form_id = callback.data.split()[1]
+    profile_id = callback.data.split()[1]
     username = callback.data.split()[2]
 
     try:
         # Создание сессии
         async for session in database.get_session():
             # Изменение статуса анкеты
-            await database.update_status_form(session, form_id, 'canceled')
+            await database.update_status_profile(session, profile_id, 'canceled')
 
 
         # Подписание анкеты 
@@ -378,31 +425,31 @@ async def cancel_form_handler(callback: CallbackQuery, state: FSMContext):
         try:
             # Отправка человеку сообщения о неподтвержденной анкете
             await bot.send_photo(
-                chat_id= form_id,
-                photo= FSInputFile('bot/design/canceled_form.jpeg'),
+                chat_id= profile_id,
+                photo= FSInputFile('bot/design/canceled_profile.jpeg'),
                 caption= 'Ваша анкета не подтверждена!\n\nВам необходимо заново пройти регистрацию',
-                reply_markup= await keyboards.recreate_keyboard_by_admins(form_id, username)
+                reply_markup= await keyboards.recreate_keyboard_by_admins(profile_id, username)
             )
         except:
             pass
 
     except Exception as error:
-        print(f'cancel_form_handler error: {error}')
+        print(f'cancel_profile_handler error: {error}')
 
 # Разблокировка анкеты 
 @router_admin.callback_query(F.data.contains('unblock'))
-async def unblock_form_handler(callback: CallbackQuery, state: FSMContext):
+async def unblock_profile_handler(callback: CallbackQuery, state: FSMContext):
     # Сброс состояния при его наличии
     await state.clear()
 
     # Получение id анкеты
-    form_id = callback.data.split()[1]
+    profile_id = callback.data.split()[1]
 
     try:
         # Создание сессии
         async for session in database.get_session():
             # Изменение статуса анкеты
-            await database.update_status_form(session, form_id, 'open')
+            await database.update_status_profile(session, profile_id, 'open')
 
 
         # Подписание анкеты 
@@ -415,31 +462,31 @@ async def unblock_form_handler(callback: CallbackQuery, state: FSMContext):
         try:
             # Отправка человеку сообщения о разблокированной анкете
             await bot.send_photo(
-                chat_id= form_id,
-                photo= FSInputFile('bot/design/accepted_form.jpeg'),
+                chat_id= profile_id,
+                photo= FSInputFile('bot/design/unblocked.jpeg'),
                 caption= 'Ваша анкета разблокирована!\n\nПродолжайте занкомиться 😍',
-                reply_markup= keyboards.under_menu_keyboard
+                reply_markup= keyboards.start_keyboard
             )
         except:
             pass
 
     except Exception as error:
-        print(f'unblock_form_handler error: {error}')
+        print(f'unblock_profile_handler error: {error}')
 
 # Разблокировка анкеты 
 @router_admin.callback_query(F.data.contains('ban'))
-async def ban_form_handler(callback: CallbackQuery, state: FSMContext):
+async def ban_profile_handler(callback: CallbackQuery, state: FSMContext):
     # Сброс состояния при его наличии
     await state.clear()
 
     # Получение id анкеты
-    form_id = callback.data.split()[1]
+    profile_id = callback.data.split()[1]
 
     try:
         # Создание сессии
         async for session in database.get_session():
             # Изменение статуса анкеты
-            await database.update_status_form(session, form_id, 'banned')
+            await database.update_status_profile(session, profile_id, 'banned')
 
 
         # Подписание анкеты 
@@ -452,7 +499,7 @@ async def ban_form_handler(callback: CallbackQuery, state: FSMContext):
         try:
             # Отправка человеку сообщения о забаненной анкете
             await bot.send_photo(
-                chat_id= form_id,
+                chat_id= profile_id,
                 photo= FSInputFile('bot/design/banned.jpeg'),
                 caption= '❌ Твой аккаунт заблокирован без возможности разблокировки.'
             )
@@ -460,7 +507,7 @@ async def ban_form_handler(callback: CallbackQuery, state: FSMContext):
             pass
 
     except Exception as error:
-        print(f'ban_form_handler error: {error}')
+        print(f'ban_profile_handler error: {error}')
 
 
 

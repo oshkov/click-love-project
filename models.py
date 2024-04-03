@@ -7,8 +7,8 @@ import pytz
 Base = declarative_base()
 
 
-class FormModel(Base):
-    __tablename__ = 'forms'
+class ProfileModel(Base):
+    __tablename__ = 'profiles'
 
     creation_date = Column(TIMESTAMP(timezone=True), default=datetime.datetime.now(pytz.timezone('Europe/Moscow')))
     id = Column(Text, primary_key=True)
@@ -34,10 +34,10 @@ class UserModel(Base):
     username = Column(Text)
     name = Column(Text)
     lastname = Column(Text)
-    last_action = Column(Text)
+    last_action = Column(TIMESTAMP(timezone=True))
     ban_status = Column(Text)
     sub_status = Column(Text)
-    sub_end_date = Column(Text)
+    sub_end_date = Column(TIMESTAMP(timezone=True))
     referrals = Column(Integer)
     invited_by = Column(Text)
     agreement = Column(Integer)

@@ -1,89 +1,6 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
 
 
-# Клавиатура после стартового сообщения
-start_keyboard = [
-    [
-    KeyboardButton(text= 'Зарегистрироваться', web_app= WebAppInfo(url='https://click-love.ru/registration/123'))
-    ]
-]
-start_keyboard = ReplyKeyboardMarkup(keyboard= start_keyboard, resize_keyboard= True, is_persistent= True)
-
-# Клавиатура подтверждения анкеты после регистрации
-preview_form_keyboard =[
-    [
-        InlineKeyboardButton(text= '✅ Создать анкету', callback_data= 'create_form')
-    ],
-    [
-        InlineKeyboardButton(text= '🔄 Пересоздать', callback_data= 'recreate_form')
-    ]
-]
-preview_form_keyboard = InlineKeyboardMarkup(inline_keyboard= preview_form_keyboard)
-
-# Клавиатура для разделов меню
-under_menu_keyboard = [
-    [
-    InlineKeyboardButton(text= '🏠 Меню', callback_data= 'menu')
-    ],
-    [
-    InlineKeyboardButton(text= '❤️ Смотреть анкеты', callback_data= 'check_forms')
-    ]
-]
-under_menu_keyboard = InlineKeyboardMarkup(inline_keyboard= under_menu_keyboard)
-
-
-# Клавиатура меню
-async def menu_keyboard(status):
-    menu_keyboard =[
-        [
-            InlineKeyboardButton(text= '😊 Как выглядит моя анкета', callback_data= 'my_form')
-        ],
-        [
-            InlineKeyboardButton(text= '✍️ Редактировать анкету', callback_data= 'recreate_form')
-        ],
-        [
-            InlineKeyboardButton(text= '🎁 Бонусы', callback_data= 'bonuses')
-        ],
-        [
-            InlineKeyboardButton(text= '❤️ Смотреть анкеты', callback_data= 'check_forms')
-        ]
-    ]
-
-    if status == 'open':
-        menu_keyboard.insert(0,[InlineKeyboardButton(text= '🙈 Скрыть анкету', callback_data= 'update_form_status')])
-    elif status == 'closed':
-        menu_keyboard.insert(0,[InlineKeyboardButton(text= '🤗 Открыть анкету', callback_data= 'update_form_status')])
-    elif status == 'wait':
-        menu_keyboard.insert(0,[InlineKeyboardButton(text= '❗️ Анкета еще не подтверждена', callback_data= 'update_form_status')])
-
-    menu_keyboard = InlineKeyboardMarkup(inline_keyboard= menu_keyboard)
-    return menu_keyboard
-
-# Клавиатура при уведомлении о лайке
-async def show_form_keyboard(form_id, mutual= None):
-    if mutual is not None:
-        mutual = 'mutual'
-    show_form_keyboard = [
-        [
-            InlineKeyboardButton(text='Посмотреть', callback_data= f'check_form_who_liked_me {form_id} {mutual}')
-        ]
-    ]
-    show_form_keyboard = InlineKeyboardMarkup(inline_keyboard= show_form_keyboard)
-    return show_form_keyboard
-
-
-
-
-
-
-
-
-
-# НОВЫЕ КЛАВИАТУРЫ
-
-
-
-
 # Клавиатура регистрации
 async def registrate(user_id, username):
     markup = [
@@ -102,30 +19,30 @@ async def registrate(user_id, username):
 async def menu_keyboard(status):
     markup =[
         [
-            InlineKeyboardButton(text= '😊 Как выглядит моя анкета', callback_data= 'my_form')
+            InlineKeyboardButton(text= '😊 Как выглядит моя анкета', callback_data= 'my_profile')
         ],
         [
-            InlineKeyboardButton(text= '✍️ Редактировать анкету', callback_data= 'recreate_form')
+            InlineKeyboardButton(text= '✍️ Редактировать анкету', callback_data= 'recreate_profile')
         ],
         # [
         #     InlineKeyboardButton(text= '🎁 Бонусы', callback_data= 'bonuses')
         # ],
         [
-            InlineKeyboardButton(text= '❤️ Смотреть анкеты', callback_data= 'check_forms')
+            InlineKeyboardButton(text= '❤️ Смотреть анкеты', callback_data= 'check_profiles')
         ]
     ]
 
     if status == 'open':
-        markup.insert(0,[InlineKeyboardButton(text= '🙈 Скрыть анкету', callback_data= 'update_form_status')])
+        markup.insert(0,[InlineKeyboardButton(text= '🙈 Скрыть анкету', callback_data= 'update_profile_status')])
     elif status == 'closed':
-        markup.insert(0,[InlineKeyboardButton(text= '🤗 Открыть анкету', callback_data= 'update_form_status')])
+        markup.insert(0,[InlineKeyboardButton(text= '🤗 Открыть анкету', callback_data= 'update_profile_status')])
 
     keyboard = InlineKeyboardMarkup(inline_keyboard= markup)
     return keyboard
 
 
 # Клавиатура для просмотра анкет
-async def form_keyboard(id, more_photo= False, next_photo_num= 1):
+async def profile_keyboard(id, more_photo= False, next_photo_num= 1):
     markup = [
         [
             InlineKeyboardButton(text= '❤️ Нравится', callback_data= f'rate like {id}'),
@@ -158,7 +75,7 @@ async def recreate_keyboard(user_id, username):
 
 
 # Клавиатура для ответа на лайк
-async def form_after_like_keyboard(id, more_photo= False, next_photo_num= 1):
+async def profile_after_like_keyboard(id, more_photo= False, next_photo_num= 1):
     markup = [
         [
             InlineKeyboardButton(text= '❤️ Нравится', callback_data= f'who_liked_me like {id}'),
@@ -177,22 +94,24 @@ async def form_after_like_keyboard(id, more_photo= False, next_photo_num= 1):
 
 
 # Клавиатура для проверки созданных анкет
-async def check_waited_forms(id, username):
+async def check_waited_profiles(id, username, more_photo= False, next_photo_num= 1):
     markup = [
         [
-            InlineKeyboardButton(text= '✅ Одобрить', callback_data= f'accept_form {id}'),
+            InlineKeyboardButton(text= '✅ Одобрить', callback_data= f'accept_profile {id}'),
         ],
         [
-            InlineKeyboardButton(text= '❌ Отклонить', callback_data= f'cancel_form {id} {username}'),
+            InlineKeyboardButton(text= '❌ Отклонить', callback_data= f'cancel_profile {id} {username}'),
         ]
     ]
+    if more_photo:
+        markup.insert(0,[InlineKeyboardButton(text= '📸 Смотреть еще фото', callback_data= f'photo_verification {id} {next_photo_num} wait')])
 
     keyboard = InlineKeyboardMarkup(inline_keyboard= markup)
     return keyboard
 
 
 # Клавиатура для проверки анкет на которые жаловались
-async def check_blocked_forms(id):
+async def check_blocked_profiles(id, more_photo= False, next_photo_num= 1):
     markup = [
         [
             InlineKeyboardButton(text= '🔓 Разблокировать', callback_data= f'unblock {id}'),
@@ -201,6 +120,8 @@ async def check_blocked_forms(id):
             InlineKeyboardButton(text= '🔐 Забанить', callback_data= f'ban {id}'),
         ]
     ]
+    if more_photo:
+        markup.insert(0,[InlineKeyboardButton(text= '📸 Смотреть еще фото', callback_data= f'photo_verification {id} {next_photo_num} blocked')])
 
     keyboard = InlineKeyboardMarkup(inline_keyboard= markup)
     return keyboard
@@ -217,10 +138,53 @@ async def recreate_keyboard_by_admins(user_id, username):
     return keyboard
 
 
+# Клавиатура для проверки анкет на которые жаловались
+async def my_profile_keyboard(id, more_photo= False, next_photo_num= 1):
+    markup = [
+        [
+            InlineKeyboardButton(text= '🏠 Меню', callback_data= 'menu'),
+        ],
+        [
+            InlineKeyboardButton(text= '❤️ Смотреть анкеты', callback_data= 'check_profiles'),
+        ]
+    ]
+    if more_photo:
+        markup.insert(0,[InlineKeyboardButton(text= '📸 Смотреть еще фото', callback_data= f'my_photo_check {id} {next_photo_num}')])
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard= markup)
+    return keyboard
+
+
+# Клавиатура при уведомлении о лайке
+async def show_profile_keyboard(profile_id, mutual= None):
+    if mutual is not None:
+        mutual = 'mutual'
+    keyboard = [
+        [
+            InlineKeyboardButton(text='Посмотреть', callback_data= f'check_profile_who_liked_me {profile_id} {mutual}')
+        ]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard= keyboard)
+    return keyboard
+
+
+
+# Клавиатура после подтверждения анкеты
+start_keyboard = [
+    [
+        InlineKeyboardButton(text= '🏠 Меню', callback_data= 'menu'),
+    ],
+    [
+        InlineKeyboardButton(text= '❤️ Смотреть анкеты', callback_data= 'check_profiles')
+    ]
+]
+start_keyboard = InlineKeyboardMarkup(inline_keyboard= start_keyboard)
+
+
 # Клавиатура проверки юзернейма
 check_username = [
     [
-    InlineKeyboardButton(text= 'Проверить @юзернейм', callback_data= 'check_username')
+        InlineKeyboardButton(text= 'Проверить @юзернейм', callback_data= 'check_username')
     ]
 ]
 check_username = InlineKeyboardMarkup(inline_keyboard= check_username)
@@ -229,7 +193,7 @@ check_username = InlineKeyboardMarkup(inline_keyboard= check_username)
 # Клавиатура проверки юзернейма
 check_bot = [
     [
-    InlineKeyboardButton(text= 'Я не робот', callback_data= 'check_bot')
+        InlineKeyboardButton(text= 'Я не робот', callback_data= 'check_bot')
     ]
 ]
 check_bot = InlineKeyboardMarkup(inline_keyboard= check_bot)
@@ -237,15 +201,15 @@ check_bot = InlineKeyboardMarkup(inline_keyboard= check_bot)
 
 # Меню админа в боте заработка
 admin_keyboard = [
-[
-    KeyboardButton(text='🔍 Начать проверку')
-],
-[
-    KeyboardButton(text='📋 Статистика')
-],
-[
-    KeyboardButton(text='📩 Рассылка')
-]
+    [
+        KeyboardButton(text='🔍 Начать проверку')
+    ],
+    [
+        KeyboardButton(text='📋 Статистика')
+    ],
+    [
+        KeyboardButton(text='📩 Рассылка')
+    ]
 ]
 admin_keyboard = ReplyKeyboardMarkup(keyboard=admin_keyboard, resize_keyboard=True, input_field_placeholder='Меню админа')
 
@@ -259,18 +223,18 @@ without_photo_keyboard = [
 without_photo_keyboard = InlineKeyboardMarkup(inline_keyboard=without_photo_keyboard)
 
 question_to_send = [
-[
-    InlineKeyboardButton(text='Отправить всем пользователям', callback_data='SendToAll')
-],
-[
-    InlineKeyboardButton(text='Не отправлять', callback_data='DontSendToAll')
-]
+    [
+        InlineKeyboardButton(text='Отправить всем пользователям', callback_data='SendToAll')
+    ],
+    [
+        InlineKeyboardButton(text='Не отправлять', callback_data='DontSendToAll')
+    ]
 ]
 question_to_send = InlineKeyboardMarkup(inline_keyboard=question_to_send)
 
 dont_send = [
-[
-    InlineKeyboardButton(text='Не отправлять', callback_data='DontSendToAll')
-]
+    [
+        InlineKeyboardButton(text='Не отправлять', callback_data='DontSendToAll')
+    ]
 ]
 dont_send = InlineKeyboardMarkup(inline_keyboard=dont_send)

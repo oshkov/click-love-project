@@ -1,19 +1,18 @@
-import shutil
 from fastapi import FastAPI, UploadFile, Request, Depends, Form, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
-import time
-from web_registration.database import get_session, notify_admins, success_message
-from models import FormModel
+import config
+
+from web_registration.database import DataBase
+import web_registration.app_texts as app_texts
 
 
-app = FastAPI(
-    title='Registration'
-)
+database = DataBase(config.DATABASE_URL)
+
+app = FastAPI(title='Registration')
 
 UPLOAD_FOLDER = 'photos/'
-
 
 app.mount('/web_registration/static', StaticFiles(directory='web_registration/static'), name='static')
 templates = Jinja2Templates(directory="web_registration/templates")
@@ -21,7 +20,33 @@ templates = Jinja2Templates(directory="web_registration/templates")
 
 # Вход на регистрацию
 @app.get('/registration/{user_id}/{username}')
-async def main(user_id, username, request: Request, session = Depends(get_session)):
+async def main(
+    user_id,
+    username,
+    request: Request,
+    session = Depends(database.get_session)
+):
+
+    # Получение данных о пользователе
+    user_info = await database.get_profile_information(session, user_id)
+
+    # Если есть анкета, то проверяется ее статус
+    if user_info:
+        # Если анкета забанена, то выводит ошибку
+        if user_info.status == 'banned':
+            error_message = app_texts.BANNED
+
+            # Создаем объект переадресации
+            response = RedirectResponse(url=f'/error/{user_id}/{username}/{error_message}', status_code=301)
+            return response
+
+        # Если анкета заморожена, то выводит ошибку
+        elif user_info.status == 'blocked':
+            error_message = 'Вы сможете изменить анкету только после разморозки вашего профиля админами'
+
+            # Создаем объект переадресации
+            response = RedirectResponse(url=f'/error/{user_id}/{username}/{error_message}', status_code=301)
+            return response
 
     return templates.TemplateResponse(
         request=request, name="index.html"
@@ -42,130 +67,97 @@ async def aaaaaaaaa(
     target: list = Form(None),
     photos: list[UploadFile] = File(...),
     about = Form(None),
-    session = Depends(get_session)
+    session = Depends(database.get_session)
 ):
 
     try:
-        # Поиск анкеты по user_id
-        user_in_db = await session.get(FormModel, user_id)
+        # Скачивание фото и получения массива с именами фото
+        photo_list = await database.download_photos(user_id, photos, UPLOAD_FOLDER)
 
-        # Создание массива с фотками и их скачивание
-        photo_list = []
-        num = 0
-        timenow = time.strftime('%d%m%Y%H%M%S')
-        for photo in photos:
-            # Имя для фото: дата + номер фото
-            photo.filename = f'{user_id}_{timenow}_{num}.jpeg'
+        # Если произошла ошибка в скачивании фото
+        if photo_list['response'] is False:
 
-            # Добавление фото в список фотографий
-            photo_list.append(photo.filename)
+            # Обработка сообщения об ошибке
+            error = str(photo_list['error'])
+            error_message = error.replace('/', '-')
 
-            # Скачивание фото
-            with open(f'{UPLOAD_FOLDER}/{photo.filename}', 'wb') as buffer:
-                shutil.copyfileobj(photo.file, buffer)
-            num += 1
+            # Создаем объект переадресации
+            response = RedirectResponse(url=f'/error/{user_id}/{username}/{error_message}', status_code=301)
+            return response
 
-        # Если анкета уже была, то ее данные обновляются
-        if user_in_db:
-            # Обновление данных в бд
-            user_in_db.status = 'open'
-            user_in_db.name = name
-            user_in_db.gender = gender
-            user_in_db.preferences = preferences
-            user_in_db.city = city
-            user_in_db.age = age
-            user_in_db.target = target
-            user_in_db.about = about
-            user_in_db.photos = photo_list
-            user_in_db.warns = 0
 
-            try:
-                # Добавление данных в бд и сохранение
-                await session.commit()
+        # Добавление данных о пользователе в словарь
+        profile_info = {
+            'user_id': user_id,
+            'username': username,
+            'name': name,
+            'gender': gender,
+            'preferences': preferences,
+            'city': city,
+            'age': age,
+            'target': target,
+            'about': about,
+            'photo_list': photo_list['photo_list']
+        }
 
-                # Сообщение пользователю в телеграм о создании анкеты
-                await success_message(user_id, 'update')
+        # Создание или обновление анкеты
+        create_profile = await database.create_profile(session, profile_info)
 
-                # Уведомление админам о новой анкете
-                await notify_admins()
+        status = create_profile['profile_status']
 
-                # Создаем объект переадресации
-                response = RedirectResponse(url='/success-update', status_code=301)
+        # Если произошла ошибка в создании анкеты
+        if create_profile['response'] is False:
 
-                return response
+            # Обработка сообщения об ошибке
+            error = str(photo_list['error'])
+            error_message = error.replace('/', '-')
 
-            except Exception as error:
-                error_message = str(error)
-
+            # Если ошибка в обновлении анкеты
+            if status == 'not_updated':
                 # Создаем объект переадресации
                 response = RedirectResponse(url=f'/error-update/{user_id}/{username}/{error_message}', status_code=301)
-
                 return response
 
-        # В случае если анкеты не было - она создается
-        else:
-            user_info = FormModel(
-                creation_date = None,
-                id = user_id,
-                username = username,
-                status = 'open',
-                name = name,
-                gender = gender,
-                preferences = preferences,
-                city = city,
-                age = age,
-                vk_url = None,
-                target = target,
-                about = about,
-                photos = photo_list,
-                warns = 0
-            )
-
-            try:
-                # Добавление данных в сессию
-                session.add(user_info)
-
-                # Добавление данных в бд и сохранение
-                await session.commit()
-
-                # Сообщение пользователю в телеграм о создании анкеты
-                await success_message(user_id, 'creation')
-
-                # Уведомление админам о новой анкете
-                await notify_admins()
-
-                # Создаем объект переадресации
-                response = RedirectResponse(url='/success-creation', status_code=301)
-
-                return response
-
-            except Exception as error:
-                error_message = str(error)
-                
-                # Создаем объект переадресации
+            # Если ошибка в создании анкеты
+            elif status == 'not_created':
                 response = RedirectResponse(url=f'/error-creation/{user_id}/{username}/{error_message}', status_code=301)
-
                 return response
-            
+
+
+        # Уведомление админам об анкете
+        await database.notify_admins(session)
+
+        # Сообщению пользователю
+        await database.success_message(user_id, status)
+
+        # Переадресация
+        response = RedirectResponse(url=f'/success-{status}', status_code=301)
+        return response
+
+    # Обработка прочих ошибок
     except Exception as error:
-        error_message = str(error)
-        
+        # Обработка сообщения об ошибке
+        error = str(photo_list['error'])
+        error_message = error.replace('/', '-')
+
         # Создаем объект переадресации
         response = RedirectResponse(url=f'/error/{user_id}/{username}/{error_message}', status_code=301)
-
         return response
 
 
 # Страница при успешной регистрации
 @app.get('/success-{status}')
-async def main(status, request: Request):
+async def main(
+    status,
+    request: Request
+):
 
-    if status == 'creation':
+    if status == 'created':
         return templates.TemplateResponse(
             request=request, name='success_creation.html'
         )
 
-    elif status == 'update':
+    elif status == 'updated':
         return templates.TemplateResponse(
             request=request, name="success_update.html"
         )
@@ -173,7 +165,12 @@ async def main(status, request: Request):
 
 # Страница при ошибки регистрации
 @app.get('/error-{status}/{user_id}/{username}/{error_message}')
-async def main(status, user_id, error_message, request: Request):
+async def main(
+    status,
+    user_id,
+    error_message,
+    request: Request
+):
 
     if status == 'creation':
         return templates.TemplateResponse(
@@ -192,7 +189,11 @@ async def main(status, user_id, error_message, request: Request):
 
 # Страница при любой ошибке
 @app.get('/error/{user_id}/{username}/{error_message}')
-async def main(user_id, error_message, request: Request):
+async def main(
+    user_id,
+    error_message,
+    request: Request
+):
 
     return templates.TemplateResponse(
         request=request,
