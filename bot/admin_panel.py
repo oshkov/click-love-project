@@ -240,10 +240,16 @@ async def stats_handler(message: Message, state: FSMContext):
                     parse_mode='HTML'
                 )
 
-                stats_text = await database.get_stats(session)
+                stats = await database.get_stats(session)
+                users_amount = stats['users_amount']
+                active_profiles_amount = stats['active_profiles_amount']
+                closed_profiles_amount = stats['closed_profiles_amount']
+                waited_profiles_amount = stats['waited_profiles_amount']
+                men_profiles_amount = stats['men_profiles_amount']
+                women_profiles_amount =stats['women_profiles_amount']
 
                 await bot.edit_message_text(
-                    stats_text,
+                    f'<b>📋 Статистика</b>\n\nВсего пользователей: <b>{users_amount}</b>\n\n<b>Анкеты</b>\nОткрытые: <b>{active_profiles_amount} шт.</b>\nЗакрытые: <b>{closed_profiles_amount}шт.</b>\nОжидают проверки: <b>{waited_profiles_amount} шт.</b>\n\nМужчины: <b>{men_profiles_amount} чел.</b>\nЖенщины: <b>{women_profiles_amount} чел.</b>',
                     message.chat.id,
                     mes.message_id,
                     parse_mode= 'html'
@@ -274,7 +280,10 @@ async def verification_profiles_handler(message: Message, state: FSMContext):
             else:
                 pass
 
+    except Exception as error:
+        print(f'verification_profiles_handler() Session error: {error}')
 
+    try:
         if profile_for_verification is not None:
 
             profile_id = profile_for_verification.id
@@ -315,7 +324,8 @@ async def verification_profiles_handler(message: Message, state: FSMContext):
             return
 
     except Exception as error:
-        print(f'verification_profiles_handler error: {error}')
+        print(f'verification_profiles_handler() error: {error}')
+        await message.answer(f'Ошибка: {error}')
 
 # Листание фото
 @router_admin.callback_query(F.data.contains('photo_verification'))
@@ -427,7 +437,7 @@ async def cancel_profile_handler(callback: CallbackQuery, state: FSMContext):
             await bot.send_photo(
                 chat_id= profile_id,
                 photo= FSInputFile('bot/design/canceled_profile.jpeg'),
-                caption= 'Ваша анкета не подтверждена!\n\nВам необходимо заново пройти регистрацию',
+                caption= messages.CANCELED,
                 reply_markup= await keyboards.recreate_keyboard_by_admins(profile_id, username)
             )
         except:

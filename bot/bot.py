@@ -24,10 +24,18 @@ async def accept_agreement_handler(message: Message, state: FSMContext):
     # Сброс состояния при его налиции
     await state.clear()
 
+    # global start_message
+    # start_message = await message.answer(
+    #     messages.CHECK_BOT,
+    #     reply_markup= keyboards.check_bot
+    # )
+
     global start_message
-    start_message = await message.answer(
-        messages.CHECK_BOT,
-        reply_markup= keyboards.check_bot
+    start_message = await message.answer_video(
+        video= FSInputFile('bot/design/start.mp4'),
+        caption= messages.START_TEXT_NEW_USER,
+        reply_markup= keyboards.check_bot,
+        parse_mode= 'HTML'  
     )
 
 # Проверка на бота
@@ -36,30 +44,47 @@ async def check_bot_handler(callback: CallbackQuery, state: FSMContext):
     # Сброс состояния при его налиции
     await state.clear()
 
+    # Проверка на наличие юзернейма
+    if callback.from_user.username is None:
+        await callback.message.answer(
+            messages.CREATE_USERNAME,
+            reply_markup= keyboards.check_username
+        )
+        return
+
     # Создание сессии
     try:
         async for session in database.get_session():
+
             # Получение данных об анкете
             profile = await database.get_profile_information(session, callback.from_user.id)
 
             # Проверка на бан
-            if profile.status == 'banned':
-                await callback.answer(
-                    messages.BANNED,
-                    show_alert= True
-                )
-                return
+            if profile:
+                if profile.status == 'banned':
+                    await callback.answer(
+                        messages.BANNED,
+                        show_alert= True
+                    )
+                    return
+                
+                elif profile.status == 'canceled':
+                    await callback.answer(
+                        messages.CANCELED,
+                        show_alert= True
+                    )
+                    return
 
             # Добавление пользователя в бд
-            await database.add_user(session, callback)
-
-            # Проверка на наличие юзернейма
-            if callback.from_user.username is None:
-                await callback.message.answer(
-                    messages.CREATE_USERNAME,
-                    reply_markup= keyboards.check_username
+            if await database.add_user(session, callback):
+                # Если новый пользователь, то уведомление админам
+                stats = await database.get_stats(session)
+                users_amount = stats['users_amount']
+                await database.notify_admins(
+                    session,
+                    bot,
+                    message_text= f'🆕 Новый пользователь\nUsername: @{callback.from_user.username}\nВсего пользователей: {users_amount}'
                 )
-                return
 
     except Exception as error:
         print(f'check_bot_handler() Session error: {error}')
@@ -67,9 +92,18 @@ async def check_bot_handler(callback: CallbackQuery, state: FSMContext):
     try:
         # Проверка на наличие анкеты
         if profile is None:
-            await callback.message.answer_video(
-                video= FSInputFile('bot/design/start.mp4'),
-                caption= messages.START_TEXT_NEW_USER,
+            # await callback.message.answer_video(
+            #     video= FSInputFile('bot/design/start.mp4'),
+            #     caption= messages.START_TEXT_NEW_USER,
+            #     reply_markup= await keyboards.registrate(callback.from_user.id, callback.from_user.username)
+            # )
+
+            await callback.message.edit_media(
+                media= InputMediaPhoto(
+                    media= FSInputFile('bot/design/gift.jpeg'),
+                    caption= messages.START_TEXT_NEW_USER_2,
+                    parse_mode= 'HTML'
+                ),
                 reply_markup= await keyboards.registrate(callback.from_user.id, callback.from_user.username)
             )
 
@@ -82,9 +116,9 @@ async def check_bot_handler(callback: CallbackQuery, state: FSMContext):
                 reply_markup= await keyboards.menu_keyboard(profile.status)
             )
 
-        try:
-            await bot.delete_message(callback.message.chat.id, start_message.message_id)
-        except: pass
+            try:
+                await bot.delete_message(callback.message.chat.id, start_message.message_id)
+            except: pass
 
     except Exception as error:
         print(f'check_bot_handler() error: {error}')
@@ -95,15 +129,40 @@ async def menu_command_handler(message: Message, state: FSMContext):
     # Сброс состояния при его налиции
     await state.clear()
 
+    # Проверка на наличие юзернейма
+    if message.from_user.username is None:
+        await message.answer(
+            messages.CREATE_USERNAME,
+            reply_markup= keyboards.check_username
+        )
+        return
+
     # Создание сессии
     try:
         async for session in database.get_session():
             # Получение данных об анкете
             profile = await database.get_profile_information(session, message.from_user.id)
 
-            # Проверка на бан
-            if profile.status == 'banned':
-                await message.answer(messages.BANNED)
+            # Проверка на наличие анкеты
+            if profile:
+                # Проверка на бан
+                if profile.status == 'banned':
+                    await message.answer(messages.BANNED)
+                    return
+                
+                elif profile.status == 'canceled':
+                    await message.answer(
+                        messages.CANCELED,
+                        reply_markup= await keyboards.recreate_keyboard_by_admins(message.from_user.id, message.from_user.username)
+                    )
+                    return
+                
+            # Если анкеты нет
+            else:
+                await message.answer(
+                    messages.NO_PROFILE,
+                    reply_markup= await keyboards.registrate(message.from_user.id, message.from_user.username)
+                )
                 return
 
     except Exception as error:
@@ -210,15 +269,40 @@ async def myprofile_command_handler(message: Message, state: FSMContext):
     # Сброс состояния при его налиции
     await state.clear()
 
+    # Проверка на наличие юзернейма
+    if message.from_user.username is None:
+        await message.answer(
+            messages.CREATE_USERNAME,
+            reply_markup= keyboards.check_username
+        )
+        return
+
     # Создание сессии
     try:
         async for session in database.get_session():
             # Получение данных об анкете
             profile = await database.get_profile_information(session, message.from_user.id)
 
-            # Проверка на бан
-            if profile.status == 'banned':
-                await message.answer(messages.BANNED)
+            # Проверка на наличие анкеты
+            if profile:
+                # Проверка на бан
+                if profile.status == 'banned':
+                    await message.answer(messages.BANNED)
+                    return
+                
+                elif profile.status == 'canceled':
+                    await message.answer(
+                        messages.CANCELED,
+                        reply_markup= await keyboards.recreate_keyboard_by_admins(message.from_user.id, message.from_user.username)
+                    )
+                    return
+                
+            # Если анкеты нет
+            else:
+                await message.answer(
+                    messages.NO_PROFILE,
+                    reply_markup= await keyboards.registrate(message.from_user.id, message.from_user.username)
+                )
                 return
 
     except Exception as error:
@@ -288,6 +372,14 @@ async def profiles_command_handler(message: Message, state: FSMContext):
     # Сброс состояния при его налиции
     await state.clear()
 
+    # Проверка на наличие юзернейма
+    if message.from_user.username is None:
+        await message.answer(
+            messages.CREATE_USERNAME,
+            reply_markup= keyboards.check_username
+        )
+        return
+
     # Создание сессии
     try:
         async for session in database.get_session():
@@ -295,24 +387,41 @@ async def profiles_command_handler(message: Message, state: FSMContext):
             # Получение данных о своей анкете
             my_profile = await database.get_profile_information(session, message.from_user.id)
 
-            if my_profile.status == 'wait':
-                await message.answer(messages.WAITED)
-                return
+            # Проверка на наличие анкеты
+            if my_profile:
+                if my_profile.status == 'wait':
+                    await message.answer(messages.WAITED)
+                    return
 
-            elif my_profile.status == 'closed':
-                await message.answer(messages.CLOSED)
-                return
+                elif my_profile.status == 'closed':
+                    await message.answer(messages.CLOSED)
+                    return
 
-            elif my_profile.status == 'blocked':
-                await message.answer(messages.BLOCKED)
-                return
+                elif my_profile.status == 'blocked':
+                    await message.answer(messages.BLOCKED)
+                    return
 
-            elif my_profile.status == 'banned':
-                await message.answer(messages.BANNED)
-                return
+                elif my_profile.status == 'banned':
+                    await message.answer(messages.BANNED)
+                    return
+                
+                elif my_profile.status == 'canceled':
+                    await message.answer(
+                        messages.CANCELED,
+                        reply_markup= await keyboards.recreate_keyboard_by_admins(message.from_user.id, message.from_user.username)
+                    )
+                    return
 
-            # Получение id подходящей по параметрам анкеты
-            profile = await database.get_profile_id_by_filters(session, my_profile)
+                # Получение id подходящей по параметрам анкеты
+                profile = await database.get_profile_id_by_filters(session, my_profile)
+            
+            # Если анкеты нет
+            else:
+                await message.answer(
+                    messages.NO_PROFILE,
+                    reply_markup= await keyboards.registrate(message.from_user.id, message.from_user.username)
+                )
+                return
 
     except Exception as error:
         print(f'profiles_command_handler() Session error: {error}')
@@ -457,13 +566,15 @@ async def check_username_handler(callback: CallbackQuery, state: FSMContext):
             # Получение данных об анкете
             profile = await database.get_profile_information(session, callback.from_user.id)
 
-            # Если анкета забанена
-            if profile.status == 'banned':
-                await callback.answer(
-                    messages.BANNED,
-                    show_alert= True
-                )
-                return
+            # Проверка на наличие анкеты
+            if profile:
+                # Если анкета забанена
+                if profile.status == 'banned':
+                    await callback.answer(
+                        messages.BANNED,
+                        show_alert= True
+                    )
+                    return
 
             # Проверка на наличие юзернейма
             if callback.from_user.username is None:
@@ -471,7 +582,19 @@ async def check_username_handler(callback: CallbackQuery, state: FSMContext):
                     messages.CREATE_USERNAME,
                     show_alert= True
                 )
+                return
+            
             else:
+                # Добавление пользователя в бд
+                if await database.add_user(session, callback):
+                    # Если новый пользователь, то уведомление админам
+                    stats = await database.get_stats(session)
+                    users_amount = stats['users_amount']
+                    await database.notify_admins(
+                        session,
+                        bot,
+                        message_text= f'🆕 Новый пользователь\nUsername: @{callback.from_user.username}\nВсего пользователей: {users_amount}'
+                    )
                 # Обновление юзернейма
                 await database.update_username(session, callback.from_user.id, callback.from_user.username)
 
@@ -483,7 +606,8 @@ async def check_username_handler(callback: CallbackQuery, state: FSMContext):
         if profile is None:
             await callback.message.answer(
                 messages.START_TEXT_NEW_USER,
-                reply_markup= await keyboards.registrate(callback.from_user.id, callback.from_user.username)
+                reply_markup= await keyboards.registrate(callback.from_user.id, callback.from_user.username),
+                parse_mode= 'html'
             )
 
         # В случае наличии анкеты вход в меню
@@ -589,10 +713,13 @@ async def who_liked_me(callback: CallbackQuery, state: FSMContext):
                 )
                 return
 
-            await database.my_profile(session, str(callback.from_user.id), profile_id, mark)
+            await database.like_or_dislike_profile(session, str(callback.from_user.id), profile_id, mark)
+
+            # Если поставил лайк, то получение юзернейма
             if mark == 'like':
                 profile = await database.get_profile_information(session, profile_id)
                 url = profile.username
+
     except Exception as error:
         print(f'who_liked_me() Session error: {error}')
 
@@ -658,6 +785,13 @@ async def check_profiles_handler(callback: CallbackQuery, state: FSMContext):
             elif my_profile.status == 'banned':
                 await callback.answer(
                     messages.BANNED,
+                    show_alert= True
+                )
+                return
+
+            elif my_profile.status == 'canceled':
+                await callback.answer(
+                    messages.CANCELED,
                     show_alert= True
                 )
                 return
@@ -812,6 +946,8 @@ async def check_photo_handler(callback: CallbackQuery, state: FSMContext):
     # Сброс состояния при его налиции
     await state.clear()
 
+    await callback.answer('⏳ Загрузка')
+
     profile_id = callback.data.split()[1]
     photo_num = int(callback.data.split()[2])
 
@@ -832,7 +968,8 @@ async def check_photo_handler(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_media(
             media= InputMediaPhoto(
                 media= FSInputFile(f'photos/{profile.photos[photo_num]}'),
-                caption= await messages.PROFILE_TEXT(profile.name, profile.age, profile.city, profile.about, profile.target),
+                caption= callback.message.caption,
+                # caption= await messages.PROFILE_TEXT(profile.name, profile.age, profile.city, profile.about, profile.target),
                 parse_mode='HTML'
             ), 
             reply_markup= await keyboards.profile_keyboard(profile.id, more_photo= True, next_photo_num= next_photo_num)
@@ -840,6 +977,25 @@ async def check_photo_handler(callback: CallbackQuery, state: FSMContext):
     except Exception as error:
         print(f'check_photo_handler() error: {error}')
 
+# Команда /support
+@dp.message(F.text == '/support')
+async def support(message: Message, state: FSMContext):
+    # Сброс состояния при его налиции
+    await state.clear()
+    await message.answer(messages.SUPPORT_TEXT)
+
+# Команда /corbots
+@dp.message(F.text == '/corbots')
+async def corbots(message: Message, state: FSMContext):
+    # Сброс состояния при его налиции
+    await state.clear()
+
+    await message.answer_photo(
+        photo= FSInputFile('bot/design/corbots.jpeg'),
+        caption= messages.CORBOTS_TEXT,
+        parse_mode= 'HTML',
+        reply_markup= keyboards.corbots_keyboard
+    )
 
 # Запуск бота
 async def main():

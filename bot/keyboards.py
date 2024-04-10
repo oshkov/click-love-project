@@ -193,7 +193,7 @@ check_username = InlineKeyboardMarkup(inline_keyboard= check_username)
 # Клавиатура проверки юзернейма
 check_bot = [
     [
-        InlineKeyboardButton(text= 'Я не робот', callback_data= 'check_bot')
+        InlineKeyboardButton(text= 'Смотреть анкеты ➡️', callback_data= 'check_bot')
     ]
 ]
 check_bot = InlineKeyboardMarkup(inline_keyboard= check_bot)
@@ -238,3 +238,12 @@ dont_send = [
     ]
 ]
 dont_send = InlineKeyboardMarkup(inline_keyboard=dont_send)
+
+
+# ТехПоддержка
+corbots_keyboard = [
+    [
+        InlineKeyboardButton(text='👀 ПОСМОТРЕТЬ 👀', url='https://t.me/corbots')
+    ]
+]
+corbots_keyboard = InlineKeyboardMarkup(inline_keyboard=corbots_keyboard)

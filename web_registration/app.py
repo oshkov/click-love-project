@@ -20,7 +20,7 @@ templates = Jinja2Templates(directory="web_registration/templates")
 
 # Вход на регистрацию
 @app.get('/registration/{user_id}/{username}')
-async def main(
+async def start_registration(
     user_id,
     username,
     request: Request,
@@ -29,6 +29,8 @@ async def main(
 
     # Получение данных о пользователе
     user_info = await database.get_profile_information(session, user_id)
+
+    print(user_id)
 
     # Если есть анкета, то проверяется ее статус
     if user_info:
@@ -49,13 +51,14 @@ async def main(
             return response
 
     return templates.TemplateResponse(
-        request=request, name="index.html"
+        request=request,
+        name="index.html"
     )
 
 
 # Отправка данных для регистрации в бд
 @app.post('/registration/{user_id}/{username}')
-async def aaaaaaaaa(
+async def registration(
     user_id,
     username,
     request: Request,
@@ -147,7 +150,7 @@ async def aaaaaaaaa(
 
 # Страница при успешной регистрации
 @app.get('/success-{status}')
-async def main(
+async def success(
     status,
     request: Request
 ):
@@ -165,9 +168,10 @@ async def main(
 
 # Страница при ошибки регистрации
 @app.get('/error-{status}/{user_id}/{username}/{error_message}')
-async def main(
+async def error(
     status,
     user_id,
+    username,
     error_message,
     request: Request
 ):
@@ -176,21 +180,22 @@ async def main(
         return templates.TemplateResponse(
             request=request,
             name="error_creation.html",
-            context={'error_message': error_message, 'user_id': user_id}
+            context={'error_message': error_message, 'user_id': user_id, 'username': username}
         )
 
     elif status == 'update':
         return templates.TemplateResponse(
             request=request,
             name="error_update.html",
-            context={'error_message': error_message, 'user_id': user_id}
+            context={'error_message': error_message, 'user_id': user_id, 'username': username}
         )
     
 
 # Страница при любой ошибке
 @app.get('/error/{user_id}/{username}/{error_message}')
-async def main(
+async def another_errors(
     user_id,
+    username,
     error_message,
     request: Request
 ):
@@ -198,5 +203,15 @@ async def main(
     return templates.TemplateResponse(
         request=request,
         name="error.html",
-        context={'error_message': error_message, 'user_id': user_id}
+        context={'error_message': error_message, 'user_id': user_id, 'username': username}
+    )
+
+
+# Страница при любой ошибке
+@app.get('/license')
+async def another_errors(request: Request):
+
+    return templates.TemplateResponse(
+        request=request,
+        name="license.html",
     )

@@ -36,7 +36,7 @@ class DataBase:
                 year_sub_status = 'Годовая подписка'
 
                 user_info = UserModel(
-                    enter = None,
+                    enter = datetime.datetime.now(pytz.timezone('Europe/Moscow')),
                     id = str(message.from_user.id),
                     username = message.from_user.username,
                     name = message.from_user.first_name,
@@ -57,12 +57,14 @@ class DataBase:
 
                 # Добавление данных в бд и сохранение
                 await session.commit()
-            
+                return True
+
             else:
-                pass
-            
+                return False
+
         except Exception as error:
             print(f'add_user() error: {error}')
+            return False
 
 
     # Добавление информации о пользователе в БД
@@ -152,8 +154,8 @@ class DataBase:
                             # По моим предпочтениям
                             ProfileModel.gender.in_(my_preferences),
 
-                            # По городу
-                            ProfileModel.city == my_city,
+                            # # По городу
+                            # ProfileModel.city == my_city,
 
                             # Совпадение предпочтений
                             ProfileModel.preferences.in_(need_preferences),
@@ -181,7 +183,7 @@ class DataBase:
     async def like_or_dislike_profile(self, session, user_id, profile_id, mark):
         try:
             new_action = ActionModel(
-                creation_date = None,
+                creation_date = datetime.datetime.now(pytz.timezone('Europe/Moscow')),
                 id_creator = str(user_id),
                 id_receiver = str(profile_id),
                 status = mark,
@@ -285,14 +287,69 @@ class DataBase:
     # Получение статистики бота
     async def get_stats(self, session):
         try:
+            # Получение количества пользователей
             users = await session.execute(select(UserModel))
             users_amount = len(users.fetchall())
 
-            profiles = await session.execute(select(ProfileModel))
-            profiles_amount = len(profiles.fetchall())
+            # Количество открытых анкет
+            profiles = await session.execute(
+                select(ProfileModel)
+                    .where(
+                        ProfileModel.status == 'open',
+                    )
+                )
+            active_profiles_amount = len(profiles.fetchall())
 
-            message = f'<b>📋 Статистика</b>\n\nВсего пользователей: <b>{users_amount}</b>\nВсего анкет: <b>{profiles_amount}</b>'
-            return message
+            # Количество закрытых анкет
+            closed_profiles = await session.execute(
+                select(ProfileModel)
+                    .where(
+                        ProfileModel.status == 'closed',
+                    )
+                )
+            closed_profiles_amount = len(closed_profiles.fetchall())
+
+            # Количество непроверенных анкет
+            waited_profiles = await session.execute(
+                select(ProfileModel)
+                    .where(
+                        ProfileModel.status == 'wait',
+                    )
+                )
+            waited_profiles_amount = len(waited_profiles.fetchall())
+
+            # Количество анкет мужчин
+            men_profiles = await session.execute(
+                select(ProfileModel)
+                    .where(
+                        and_(
+                            ProfileModel.gender == 'Мужчина',
+                            ProfileModel.status.in_(['open', 'closed'])
+                        )
+                    )
+                )
+            men_profiles_amount = len(men_profiles.fetchall())
+
+            # Количество анкет женщин
+            women_profiles = await session.execute(
+                select(ProfileModel)
+                    .where(
+                        and_(
+                            ProfileModel.gender == 'Женщина',
+                            ProfileModel.status.in_(['open', 'closed'])
+                        )
+                    )
+                )
+            women_profiles_amount = len(women_profiles.fetchall())
+
+            return {
+                'users_amount': users_amount,
+                'active_profiles_amount': active_profiles_amount,
+                'closed_profiles_amount': closed_profiles_amount,
+                'waited_profiles_amount': waited_profiles_amount,
+                'men_profiles_amount': men_profiles_amount,
+                'women_profiles_amount': women_profiles_amount
+            }
 
         except Exception as error:
             print(f'get_stats() error: {error}')

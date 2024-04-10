@@ -6,6 +6,9 @@ from aiogram import Bot
 from aiogram.types import FSInputFile
 import time
 import shutil
+import datetime
+import pytz
+from PIL import Image
 
 import config
 import web_registration.app_texts as app_texts
@@ -86,15 +89,20 @@ class DataBase:
 
             # Скачивание фото
             for photo in photos:
-                # Имя для фото: дата + номер фото
-                photo.filename = f'{user_id}_{timenow}_{num}.jpeg'
+                filename = f'{user_id}_{timenow}_{num}.jpeg'
+
+                # Открытие изображения с использованием Pillow
+                img = Image.open(photo.file)
+
+                # Сжатие изображения в два раза
+                resized_img = img.resize((img.width // 2, img.height // 2), Image.ANTIALIAS)
+                
+                # Сохранение сжатого изображения
+                resized_img.save(f'{upload_folder}/{filename}', 'JPEG', quality=60)
 
                 # Добавление фото в список фотографий
-                photo_list.append(photo.filename)
+                photo_list.append(filename)
 
-                # Скачивание фото
-                with open(f'{upload_folder}/{photo.filename}', 'wb') as buffer:
-                    shutil.copyfileobj(photo.file, buffer)
                 num += 1
 
             return {'response': True, 'photo_list': photo_list, 'error': None}
@@ -112,6 +120,7 @@ class DataBase:
         # Если анкета уже была, то ее данные обновляются
         if user_in_db:
             # Обновление данных в бд
+            user_in_db.creation_date = datetime.datetime.now(pytz.timezone('Europe/Moscow'))
             user_in_db.status = 'wait'
             user_in_db.name = profile_info['name']
             user_in_db.gender = profile_info['gender']
@@ -136,7 +145,7 @@ class DataBase:
         # Если анкеты не было, то она создается
         else:
             user_info = ProfileModel(
-                creation_date = None,
+                creation_date = datetime.datetime.now(pytz.timezone('Europe/Moscow')),
                 id = profile_info['user_id'],
                 username = profile_info['username'],
                 status = 'wait',

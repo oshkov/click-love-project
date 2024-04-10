@@ -1,7 +1,5 @@
 from sqlalchemy import Column, Integer, ARRAY, Text, TIMESTAMP
 from sqlalchemy.ext.declarative import declarative_base
-import datetime
-import pytz
 
 
 Base = declarative_base()
@@ -10,7 +8,7 @@ Base = declarative_base()
 class ProfileModel(Base):
     __tablename__ = 'profiles'
 
-    creation_date = Column(TIMESTAMP(timezone=True), default=datetime.datetime.now(pytz.timezone('Europe/Moscow')))
+    creation_date = Column(TIMESTAMP(timezone=True))
     id = Column(Text, primary_key=True)
     username = Column(Text)
     status = Column(Text)
@@ -29,7 +27,7 @@ class ProfileModel(Base):
 class UserModel(Base):
     __tablename__ = 'users'
 
-    enter = Column(TIMESTAMP(timezone=True), default=datetime.datetime.now(pytz.timezone('Europe/Moscow')))
+    enter = Column(TIMESTAMP(timezone=True))
     id = Column(Text, primary_key=True)
     username = Column(Text)
     name = Column(Text)
@@ -48,7 +46,7 @@ class UserModel(Base):
 class ActionModel(Base):
     __tablename__ = 'actions'
 
-    creation_date = Column(TIMESTAMP(timezone=True), default=datetime.datetime.now(pytz.timezone('Europe/Moscow')))
+    creation_date = Column(TIMESTAMP(timezone=True))
     id_creator = Column(Text, primary_key=True)
     id_receiver = Column(Text)
     status = Column(Text)

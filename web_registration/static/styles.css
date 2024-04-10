@@ -371,3 +371,12 @@ img {
 .input-file-btn:hover {
 	background-color: #5b60ff;
 }
+
+
+img.license {
+    width: 100%;
+    height: auto;
+    margin: 5% 0 0 0;
+    border-radius: 10px;
+    filter: drop-shadow(0px 3px 24px rgba(34, 60, 80, 0.1));
+}
