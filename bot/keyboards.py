@@ -5,7 +5,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardBu
 async def registrate(user_id, username):
     markup = [
         # [
-        #     InlineKeyboardButton(text='❤️ Создать анкету', web_app=WebAppInfo(url=f'https://click-love.ru/registration/{user_id}'))
+        #     InlineKeyboardButton(text='❤️ Создать анкету', web_app=WebAppInfo(url=f'https://click-love.ru/registration/{user_id}/{username}'))
         # ],
         [
             InlineKeyboardButton(text='❤️ Создать анкету', url=f'https://click-love.ru/registration/{user_id}/{username}')
@@ -21,9 +21,9 @@ async def menu_keyboard(status):
         [
             InlineKeyboardButton(text= '😊 Как выглядит моя анкета', callback_data= 'my_profile')
         ],
-        [
-            InlineKeyboardButton(text= '✍️ Редактировать анкету', callback_data= 'recreate_profile')
-        ],
+        # [
+        #     InlineKeyboardButton(text= '✍️ Редактировать анкету', callback_data= 'recreate_profile')
+        # ],
         # [
         #     InlineKeyboardButton(text= '🎁 Бонусы', callback_data= 'bonuses')
         # ],
@@ -145,6 +145,9 @@ async def my_profile_keyboard(id, more_photo= False, next_photo_num= 1):
             InlineKeyboardButton(text= '🏠 Меню', callback_data= 'menu'),
         ],
         [
+            InlineKeyboardButton(text= '✍️ Редактировать анкету', callback_data= 'recreate_profile')
+        ],
+        [
             InlineKeyboardButton(text= '❤️ Смотреть анкеты', callback_data= 'check_profiles'),
         ]
     ]
@@ -208,7 +211,10 @@ admin_keyboard = [
         KeyboardButton(text='📋 Статистика')
     ],
     [
-        KeyboardButton(text='📩 Рассылка')
+        KeyboardButton(text='📩 Рассылка всем')
+    ],
+    [
+        KeyboardButton(text='📩 Рассылка всем без анкет')
     ]
 ]
 admin_keyboard = ReplyKeyboardMarkup(keyboard=admin_keyboard, resize_keyboard=True, input_field_placeholder='Меню админа')
@@ -247,3 +253,27 @@ corbots_keyboard = [
     ]
 ]
 corbots_keyboard = InlineKeyboardMarkup(inline_keyboard=corbots_keyboard)
+
+
+# Демо-выбор
+gender_keyboard = [
+    [
+        InlineKeyboardButton(text='С мужчинами', callback_data='demo no-mark man 1')
+    ],
+    [
+        InlineKeyboardButton(text='С женщинами', callback_data='demo no-mark woman 1')
+    ]
+]
+gender_keyboard = InlineKeyboardMarkup(inline_keyboard=gender_keyboard)
+
+
+# Демо-клавиатура для анкет
+async def demo_profile_keyboard(gender, number):
+    markup = [
+        [
+            InlineKeyboardButton(text= '❤️ Нравится', callback_data= f'demo like {gender} {number}'),
+            InlineKeyboardButton(text= '❌ Не нравится', callback_data= f'demo dislike {gender} {number}')
+        ]
+    ]
+    demo_profile_keyboard = InlineKeyboardMarkup(inline_keyboard= markup)
+    return demo_profile_keyboard

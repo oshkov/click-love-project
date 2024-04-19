@@ -6,123 +6,19 @@ from bot.database import DataBase
 import bot.keyboards as keyboards
 import bot.messages as messages
 import bot.admin_panel as admin_panel
+import bot.starting as starting
 import config
 
 
 bot = Bot(token=config.BOT_TOKEN)
 dp = Dispatcher()
-dp.include_routers(admin_panel.router_admin)
+dp.include_routers(admin_panel.router_admin, starting.router_starting)
 print('Бот запущен')
 
 
 database = DataBase(config.DATABASE_URL)
 
 
-# Команда /start
-@dp.message(F.text.contains("/start"))
-async def accept_agreement_handler(message: Message, state: FSMContext):
-    # Сброс состояния при его налиции
-    await state.clear()
-
-    # global start_message
-    # start_message = await message.answer(
-    #     messages.CHECK_BOT,
-    #     reply_markup= keyboards.check_bot
-    # )
-
-    global start_message
-    start_message = await message.answer_video(
-        video= FSInputFile('bot/design/start.mp4'),
-        caption= messages.START_TEXT_NEW_USER,
-        reply_markup= keyboards.check_bot,
-        parse_mode= 'HTML'  
-    )
-
-# Проверка на бота
-@dp.callback_query(F.data.contains('check_bot'))
-async def check_bot_handler(callback: CallbackQuery, state: FSMContext):
-    # Сброс состояния при его налиции
-    await state.clear()
-
-    # Проверка на наличие юзернейма
-    if callback.from_user.username is None:
-        await callback.message.answer(
-            messages.CREATE_USERNAME,
-            reply_markup= keyboards.check_username
-        )
-        return
-
-    # Создание сессии
-    try:
-        async for session in database.get_session():
-
-            # Получение данных об анкете
-            profile = await database.get_profile_information(session, callback.from_user.id)
-
-            # Проверка на бан
-            if profile:
-                if profile.status == 'banned':
-                    await callback.answer(
-                        messages.BANNED,
-                        show_alert= True
-                    )
-                    return
-                
-                elif profile.status == 'canceled':
-                    await callback.answer(
-                        messages.CANCELED,
-                        show_alert= True
-                    )
-                    return
-
-            # Добавление пользователя в бд
-            if await database.add_user(session, callback):
-                # Если новый пользователь, то уведомление админам
-                stats = await database.get_stats(session)
-                users_amount = stats['users_amount']
-                await database.notify_admins(
-                    session,
-                    bot,
-                    message_text= f'🆕 Новый пользователь\nUsername: @{callback.from_user.username}\nВсего пользователей: {users_amount}'
-                )
-
-    except Exception as error:
-        print(f'check_bot_handler() Session error: {error}')
-
-    try:
-        # Проверка на наличие анкеты
-        if profile is None:
-            # await callback.message.answer_video(
-            #     video= FSInputFile('bot/design/start.mp4'),
-            #     caption= messages.START_TEXT_NEW_USER,
-            #     reply_markup= await keyboards.registrate(callback.from_user.id, callback.from_user.username)
-            # )
-
-            await callback.message.edit_media(
-                media= InputMediaPhoto(
-                    media= FSInputFile('bot/design/gift.jpeg'),
-                    caption= messages.START_TEXT_NEW_USER_2,
-                    parse_mode= 'HTML'
-                ),
-                reply_markup= await keyboards.registrate(callback.from_user.id, callback.from_user.username)
-            )
-
-        # В случае наличии анкеты вход в меню
-        else:
-            global main_menu
-            main_menu = await callback.message.answer_photo(
-                photo= FSInputFile('bot/design/menu.jpeg'),
-                caption= await messages.MENU_TEXT(profile.status),
-                reply_markup= await keyboards.menu_keyboard(profile.status)
-            )
-
-            try:
-                await bot.delete_message(callback.message.chat.id, start_message.message_id)
-            except: pass
-
-    except Exception as error:
-        print(f'check_bot_handler() error: {error}')
-    
 # Команда /menu
 @dp.message(F.text == '/menu')
 async def menu_command_handler(message: Message, state: FSMContext):
@@ -143,37 +39,42 @@ async def menu_command_handler(message: Message, state: FSMContext):
             # Получение данных об анкете
             profile = await database.get_profile_information(session, message.from_user.id)
 
-            # Проверка на наличие анкеты
-            if profile:
-                # Проверка на бан
-                if profile.status == 'banned':
-                    await message.answer(messages.BANNED)
-                    return
-                
-                elif profile.status == 'canceled':
-                    await message.answer(
-                        messages.CANCELED,
-                        reply_markup= await keyboards.recreate_keyboard_by_admins(message.from_user.id, message.from_user.username)
-                    )
-                    return
-                
-            # Если анкеты нет
-            else:
-                await message.answer(
-                    messages.NO_PROFILE,
-                    reply_markup= await keyboards.registrate(message.from_user.id, message.from_user.username)
-                )
-                return
+            # Получение данных о пользователе
+            user = await database.get_user_information(session, message.from_user.id)
 
     except Exception as error:
         print(f'menu_command_handler() Session error: {error}')
 
     try:
+        # Проверка на наличие анкеты
+        if profile:
+            # Проверка на бан
+            if profile.status == 'banned':
+                await message.answer(messages.BANNED)
+                return
+            
+            elif profile.status == 'canceled':
+                await message.answer(
+                    messages.CANCELED,
+                    reply_markup= await keyboards.recreate_keyboard_by_admins(message.from_user.id, message.from_user.username)
+                )
+                return
+            
+        # Если анкеты нет
+        else:
+            await message.answer(
+                messages.NO_PROFILE,
+                reply_markup= await keyboards.registrate(message.from_user.id, message.from_user.username)
+            )
+            return
+
+
         global main_menu
         main_menu = await message.answer_photo(
             photo= FSInputFile('bot/design/menu.jpeg'),
-            caption= await messages.MENU_TEXT(profile.status),
-            reply_markup= await keyboards.menu_keyboard(profile.status)
+            caption= await messages.MENU_TEXT(profile.status, user.sub_status, user.sub_end_date),
+            reply_markup= await keyboards.menu_keyboard(profile.status),
+            parse_mode= 'HTML'
         )
     except Exception as error:
         print(f'menu_command_handler() error: {error}')
@@ -190,23 +91,33 @@ async def menu_handler(callback: CallbackQuery, state: FSMContext):
             # Получение данных об анкете
             profile = await database.get_profile_information(session, callback.from_user.id)
 
-            # Проверка на бан
-            if profile.status == 'banned':
-                await callback.answer(
-                    messages.BANNED,
-                    show_alert= True
-                )
-                return
+            # Получение данных о пользователе
+            user = await database.get_user_information(session, callback.from_user.id)
 
     except Exception as error:
         print(f'menu_handler() Session error: {error}')
 
     try:
+        # Проверка на бан
+        if profile.status == 'banned':
+            await callback.answer(
+                messages.BANNED,
+                show_alert= True
+            )
+            return
+        
+        elif profile.status == 'canceled':
+            await callback.answer(
+                messages.CANCELED,
+                show_alert= True
+            )
+            return
+
         global main_menu
         main_menu = await callback.message.edit_media(
             media= InputMediaPhoto(
                 media= FSInputFile('bot/design/menu.jpeg'),
-                caption= await messages.MENU_TEXT(profile.status),
+                caption= await messages.MENU_TEXT(profile.status, user.sub_status, user.sub_end_date),
                 parse_mode= 'HTML'
             ),
             reply_markup= await keyboards.menu_keyboard(profile.status)
@@ -467,6 +378,9 @@ async def change_status_profile_handler(callback: CallbackQuery, state: FSMConte
             # Получение статуса анкеты
             profile = await database.get_profile_information(session, callback.from_user.id)
 
+            # Получение данных о пользователе
+            user = await database.get_user_information(session, callback.from_user.id)
+
             # Если анкета открыта
             if profile.status == 'open':
                 new_status = 'closed'
@@ -507,8 +421,9 @@ async def change_status_profile_handler(callback: CallbackQuery, state: FSMConte
     try:
         global main_menu
         main_menu = await callback.message.edit_caption(
-            caption= await messages.MENU_TEXT(new_status),
-            reply_markup= await keyboards.menu_keyboard(new_status)
+            caption= await messages.MENU_TEXT(new_status, user.sub_status, user.sub_end_date),
+            reply_markup= await keyboards.menu_keyboard(new_status),
+            parse_mode= 'html'
         )
     except Exception as error:
         print(f'change_status_profile_handler() error: {error}')

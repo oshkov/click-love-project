@@ -94,11 +94,12 @@ class DataBase:
                 # Открытие изображения с использованием Pillow
                 img = Image.open(photo.file)
 
-                # Сжатие изображения в два раза
-                resized_img = img.resize((img.width // 2, img.height // 2), Image.ANTIALIAS)
+                if img.width > 2000 or img.height > 3000:
+                    # Сжатие изображения в два раза
+                    img = img.resize((img.width // 2, img.height // 2), Image.ANTIALIAS)
                 
-                # Сохранение сжатого изображения
-                resized_img.save(f'{upload_folder}/{filename}', 'JPEG', quality=60)
+                # Сохранение изображения, с качеством 60%
+                img.save(f'{upload_folder}/{filename}', 'JPEG', quality=60)
 
                 # Добавление фото в список фотографий
                 photo_list.append(filename)

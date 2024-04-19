@@ -45,8 +45,10 @@ async def admin_menu(message: CallbackQuery, state: FSMContext):
         print(f'admin_menu error: {error}')
 
 # Рассылка
-@router_admin.message(F.text == '📩 Рассылка')
+@router_admin.message(F.text.in_({'📩 Рассылка всем', '📩 Рассылка всем без анкет'}))
 async def message_to_all_handler(message: Message, state: FSMContext):
+    # Сброс состояния при его наличии
+    await state.clear()
 
     try:
         # Создание сессии
@@ -54,6 +56,12 @@ async def message_to_all_handler(message: Message, state: FSMContext):
 
             # Проверка на админа и запрос текста
             if await database.check_admin(session, message.from_user.id) == True:
+
+                # Определение кому рассылка. Добавление в state
+                if message.text == '📩 Рассылка всем':
+                    await state.update_data(type='to everyone')
+                elif message.text == '📩 Рассылка всем без анкет':
+                    await state.update_data(type='without profile')
 
                 await message.answer(
                     f'Напишите текст который хотите разослать пользователям',
@@ -137,6 +145,7 @@ async def send_to_all(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     text = data['text']
     entities = data['entities']
+    send_type = data['type']
     try:
         photo = data['photo']
     except:
@@ -151,10 +160,16 @@ async def send_to_all(callback: CallbackQuery, state: FSMContext):
     await state.clear()
 
     if photo:
-
         try:
             # Создание сессии
             async for session in database.get_session():
+
+                # Определение черного списка для рассылки
+                if send_type == 'to everyone':
+                    black_list = []
+                elif send_type == 'without profile':
+                    # Получение списка тех, у кого есть анкета
+                    black_list = await database.get_ids_with_profile(session)
 
                 photo_send = FSInputFile(f'bot/images/{photo[-1].file_id}.jpeg')
                 await database.send_message_to_everyone(
@@ -162,7 +177,8 @@ async def send_to_all(callback: CallbackQuery, state: FSMContext):
                     bot,
                     text,
                     entities,
-                    photo_send
+                    photo_send,
+                    black_list= black_list
                 )
 
         except Exception as error:
@@ -173,11 +189,19 @@ async def send_to_all(callback: CallbackQuery, state: FSMContext):
             # Создание сессии
             async for session in database.get_session():
 
+                # Определение черного списка для рассылки
+                if send_type == 'to everyone':
+                    black_list = []
+                elif send_type == 'without profile':
+                    # Получение списка тех, у кого есть анкета
+                    black_list = await database.get_ids_with_profile(session)
+
                 await database.send_message_to_everyone(
                     session,
                     bot,
                     text,
-                    entities
+                    entities,
+                    black_list= black_list
                 )
 
         except Exception as error:
@@ -278,7 +302,7 @@ async def verification_profiles_handler(message: Message, state: FSMContext):
                 profile_for_verification = await database.get_profile_for_verification(session)
 
             else:
-                pass
+                return
 
     except Exception as error:
         print(f'verification_profiles_handler() Session error: {error}')
@@ -518,14 +542,3 @@ async def ban_profile_handler(callback: CallbackQuery, state: FSMContext):
 
     except Exception as error:
         print(f'ban_profile_handler error: {error}')
-
-
-
-
-# Обработка прочих сообщений
-@router_admin.message()
-async def echo(message: Message, state: FSMContext):
-    # Сброс состояния при его налиции
-    await state.clear()
- 
-    await message.answer('Воспользуйтесь командами или клавиатурой, а если что-то пошло не так, воспользуйся командой /start, чтобы перезапустить бота')

@@ -82,7 +82,6 @@ class DataBase:
 
     # Получение данных об анкете пользователя
     async def get_profile_information(self, session, user_id):
-
         try:
             profile = await session.get(ProfileModel, str(user_id))
 
@@ -91,6 +90,18 @@ class DataBase:
 
         except Exception as error:
             print(f'get_profile_information() error: {error}')
+
+
+    # Получение данных о пользователе
+    async def get_user_information(self, session, user_id):
+        try:
+            user = await session.get(UserModel, str(user_id))
+
+            # Возвращается объект анкеты, в случае отсутствия None
+            return user
+
+        except Exception as error:
+            print(f'get_user_information() error: {error}')
 
 
     # Обновление статуса анкеты из меню
@@ -109,44 +120,48 @@ class DataBase:
     # Поиск подходящей анкеты
     async def get_profile_id_by_filters(self, session, my_profile):
         try:
-            my_id = my_profile.id
-            my_city = my_profile.city
-            my_preferences = my_profile.preferences
-            my_gender = my_profile.gender
+            # Получение данных для поиска анкеты
+            my_id = my_profile.id                       # Мой id
+            my_city = my_profile.city                   # Мой город
+            my_preferences = my_profile.preferences     # Мои предпочтения
+            my_gender = my_profile.gender               # Мой пол
 
+            # Получения пола, относительно моих предпочтений
             if my_preferences == 'С мужчинами':
                 my_preferences = ['Мужчина']
-
             elif my_preferences == 'С женщинами':
                 my_preferences = ['Женщина']
-
             elif my_preferences == 'Со всеми':
                 my_preferences = ['Мужчина', 'Женщина']
 
-
+            # Получение предпочтений для поиска у других людей
             if my_gender == 'Мужчина':
                 need_preferences = ['Со всеми', 'С мужчинами']
-
             elif my_gender == 'Женщина':
                 need_preferences = ['Со всеми', 'С женщинами']
 
-            # Поиск поставленных оценок
-            marks = await session.execute(
+            # Получение списка id, кому ставил оценки
+            execute = await session.execute(
                 select(ActionModel.id_receiver)
                     .where(
                         ActionModel.id_creator == my_id
-                        )
+                    )
                 )
-            marks_list = [row for row in marks.scalars()]
-
+            viewed_ids = [row for row in execute.scalars()]
             # Добавление своего id, чтобы не попалась своя анкета
-            marks_list.append(my_id)
+            viewed_ids.append(my_id)
 
-            # Фильтры: 
+        except Exception as error:
+            print(f'get_profile_id_by_filters() info about my profile error: {error}')
+
+        # Поиск подходящей анкеты
+        try:
+            # Фильтры: (С ГОРОДОМ)
             # 1) По моим предпочтениям
             # 2) По городу
             # 3) Совпадение предпочтений
             # 4) Открытость анкеты
+            # 5) Отсутствие оценки
             result = await session.execute(
                 select(ProfileModel)
                     .where(
@@ -154,8 +169,8 @@ class DataBase:
                             # По моим предпочтениям
                             ProfileModel.gender.in_(my_preferences),
 
-                            # # По городу
-                            # ProfileModel.city == my_city,
+                            # По городу
+                            ProfileModel.city == my_city,
 
                             # Совпадение предпочтений
                             ProfileModel.preferences.in_(need_preferences),
@@ -167,16 +182,104 @@ class DataBase:
                     .where(
                         not_(
                             # Исключение уже просмотренных анкет и своего id 
-                            ProfileModel.id.in_(marks_list)
+                            ProfileModel.id.in_(viewed_ids)
                         )
                     )
                 )
             result_list = [row for row in result.scalars()]
 
-            return result_list[0]
+            # Если есть анкеты с фильтром по городу, то выводятся
+            if len(result_list) != 0:
+                # print(f'С фильтром по городу: {result_list[0]}')
+                return result_list[0]
+
+
+            # Фильтры: (БЕЗ ГОРОДА)
+            # 1) По моим предпочтениям
+            # 2) Совпадение предпочтений
+            # 3) Открытость анкеты
+            # 4) Отсутствие оценки
+            result = await session.execute(
+                select(ProfileModel)
+                    .where(
+                        and_(
+                            # По моим предпочтениям
+                            ProfileModel.gender.in_(my_preferences),
+
+                            # Совпадение предпочтений
+                            ProfileModel.preferences.in_(need_preferences),
+
+                            # Открытость анкеты
+                            ProfileModel.status == 'open'
+                        ),
+                    )
+                    .where(
+                        not_(
+                            # Исключение уже просмотренных анкет и своего id 
+                            ProfileModel.id.in_(viewed_ids)
+                        )
+                    )
+                )
+            result_list = [row for row in result.scalars()]
+
+            # Если есть анкеты без фильтра по городу
+            if len(result_list) != 0:
+                # print(f'Без фильтра по городу: {result_list[0]}')
+                return result_list[0]
+
+
+            # Получение списка id, кому ставил дизлайк
+            execute = await session.execute(
+                select(ActionModel.id_receiver)
+                    .where(
+                        and_(
+                            ActionModel.id_creator == my_id,
+                            ActionModel.status == 'dislike'
+                        ),
+                    )
+                )
+            disliked_ids = [row for row in execute.scalars()]
+
+            # Получение списка id, кому ставил лайк
+            execute = await session.execute(
+                select(ActionModel.id_receiver)
+                    .where(
+                        and_(
+                            ActionModel.id_creator == my_id,
+                            ActionModel.status == 'like'
+                        )
+                    )
+                )
+            liked_ids = [row for row in execute.scalars()]
+
+            # Удаление из disliked_ids всех значений, которые совпадают с liked_ids
+            disliked_ids = [id_ for id_ in disliked_ids if id_ not in liked_ids]
+
+            # Выбор анкеты, которой ставил дизлайк с наименьшим количеством просмотров
+            reps = {}
+            min_reps = None
+            first_min_reps = None
+            # Подсчитываем количество повторений каждого элемента
+            for el in disliked_ids:
+                if el in reps:
+                    reps[el] += 1
+                else:
+                    reps[el] = 1
+            # Находим первое значение с наименьшим количеством повторений
+            for el in disliked_ids:
+                el_reps = reps[el]
+                if min_reps is None or el_reps < min_reps:
+                    min_reps = el_reps
+                    first_min_reps = el
+
+            # Получение объекта анкеты
+            profile = await session.get(ProfileModel, str(first_min_reps))
+            # print(f'По кругу кому поставил дизлайк: {profile.id}')
+            return profile
 
         except Exception as error:
             print(f'get_profile_id_by_filters() error: {error}')
+            return None
 
 
     # Создание оценки
@@ -252,7 +355,7 @@ class DataBase:
 
 
     # Рассылка сообщения всем пользователям
-    async def send_message_to_everyone(self, session, bot, text, entities, photo= None, keyboard=None, parse_mode=None):
+    async def send_message_to_everyone(self, session, bot, text, entities, photo= None, keyboard=None, parse_mode=None, black_list=[]):
         try:
             users = await session.execute(select(UserModel.id))
 
@@ -261,24 +364,26 @@ class DataBase:
 
             if photo:
                 for id in user_ids:
-                    try:
-                        await bot.send_photo(chat_id=id, photo=photo, caption=text, caption_entities=entities, reply_markup=keyboard, parse_mode=parse_mode)
-                        print(f'Рассылка с фото: {id}')
+                    if id not in black_list:
+                        try:
+                            await bot.send_photo(chat_id=id, photo=photo, caption=text, caption_entities=entities, reply_markup=keyboard, parse_mode=parse_mode)
+                            print(f'Рассылка с фото: {id}')
 
-                    # Исключение если человек заблочил бота
-                    except Exception as error:
-                        print(error)
-                        # print(f'{id} заблочил бота')
+                        # Исключение если человек заблочил бота
+                        except Exception as error:
+                            print(error)
+                            print(f'{id} заблочил бота')
 
             else:
                 for id in user_ids:
-                    try:
-                        await bot.send_message(chat_id=id, text=text, entities=entities, disable_web_page_preview=True, parse_mode=parse_mode)
-                        print(f'Рассылка без фото: {id}')
+                    if id not in black_list:
+                        try:
+                            await bot.send_message(chat_id=id, text=text, entities=entities, disable_web_page_preview=True, parse_mode=parse_mode)
+                            print(f'Рассылка без фото: {id}')
 
-                    # Исключение если человек заблочил бота
-                    except Exception as error:
-                        print(f'{id} заблочил бота')
+                        # Исключение если человек заблочил бота
+                        except Exception as error:
+                            print(f'{id} заблочил бота')
 
         except Exception as error:
             print(f'send_message_to_everyone() error: {error}')
@@ -390,25 +495,14 @@ class DataBase:
             print(f'update_status_profile() error: {error}')
 
 
-    # 
-    async def get_users_without_profile(self, session):
+    # Получение списка id людей с анкетами
+    async def get_ids_with_profile(self, session):
         try:
             # Получение списка всех анкет
             profiles = await session.execute(select(ProfileModel.id))
             profile_ids = [row for row in profiles.scalars()]
 
-
-            users_without_profile = await session.execute(
-                select(UserModel)
-                    .where(
-                        not_(
-                            UserModel.id.in_(profile_ids),
-                        )
-                    )
-                )
-            users_without_profile = [row for row in users_without_profile.scalars()]
-
-            return users_without_profile
+            return profile_ids
 
         except Exception as error:
             print(f'get_users_without_profile() error: {error}')
