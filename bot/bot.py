@@ -1,5 +1,5 @@
-from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
+from aiogram import Bot, Dispatcher, F, exceptions
+from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto, Update
 from aiogram.fsm.context import FSMContext
 
 from bot.database import DataBase
@@ -79,8 +79,9 @@ async def menu_command_handler(message: Message, state: FSMContext):
     except Exception as error:
         print(f'menu_command_handler() error: {error}')
 
+
 # Пересоздание профиля
-@dp.callback_query(F.data.contains('menu'))
+@dp.callback_query(F.data == 'menu')
 async def menu_handler(callback: CallbackQuery, state: FSMContext):
     # Сброс состояния при его налиции
     await state.clear()
@@ -124,6 +125,7 @@ async def menu_handler(callback: CallbackQuery, state: FSMContext):
         )
     except Exception as error:
         print(f'menu_handler() error: {error}')
+
 
 # Просмотр своей анкеты
 @dp.callback_query(F.data == 'my_profile')
@@ -173,6 +175,7 @@ async def my_profile_handler(callback: CallbackQuery, state: FSMContext):
 
     except Exception as error:
         print(f'my_profile_handler() error: {error}')
+
 
 # Команда /myprofile
 @dp.message(F.text == '/myprofile')
@@ -243,6 +246,7 @@ async def myprofile_command_handler(message: Message, state: FSMContext):
     except Exception as error:
         print(f'myprofile_command_handler() error: {error}')
 
+
 # Листание фото
 @dp.callback_query(F.data.contains('my_photo_check'))
 async def my_photo_check_handler(callback: CallbackQuery, state: FSMContext):
@@ -276,6 +280,7 @@ async def my_photo_check_handler(callback: CallbackQuery, state: FSMContext):
         )
     except Exception as error:
         print(f'my_photo_check_handler() error: {error}')
+
 
 # Команда /profiles
 @dp.message(F.text == '/profiles')
@@ -340,7 +345,6 @@ async def profiles_command_handler(message: Message, state: FSMContext):
 
     try:
         if profile is not None:
-            print(profile.id)
 
             # Проверка на число фото больше одного
             if len(profile.photos) != 1:
@@ -365,6 +369,7 @@ async def profiles_command_handler(message: Message, state: FSMContext):
     except Exception as error:
         print(f'profiles_command_handler() error: {error}')
         await message.answer(f'Ошибка: {error}')
+
 
 # Изменение статуса анкеты
 @dp.callback_query(F.data == 'update_profile_status')
@@ -428,6 +433,7 @@ async def change_status_profile_handler(callback: CallbackQuery, state: FSMConte
     except Exception as error:
         print(f'change_status_profile_handler() error: {error}')
 
+
 # Пересоздание анкеты
 @dp.callback_query(F.data == 'recreate_profile')
 async def recreate_profile_handler(callback: CallbackQuery, state: FSMContext):
@@ -468,6 +474,7 @@ async def recreate_profile_handler(callback: CallbackQuery, state: FSMContext):
         )
     except Exception as error:
         print(f'recreate_profile_handler() error: {error}')
+
 
 # Проверка юзернейма
 @dp.callback_query(F.data.contains('check_username'))
@@ -510,8 +517,12 @@ async def check_username_handler(callback: CallbackQuery, state: FSMContext):
                         bot,
                         message_text= f'🆕 Новый пользователь\nUsername: @{callback.from_user.username}\nВсего пользователей: {users_amount}'
                     )
-                # Обновление юзернейма
-                await database.update_username(session, callback.from_user.id, callback.from_user.username)
+
+                    # Обновление юзернейма
+                    await database.update_username(session, callback.from_user.id, callback.from_user.username)
+
+                    # Получение данных о пользователе
+                    user = await database.get_user_information(session, callback.from_user.id)
 
     except Exception as error:
         print(f'check_username_handler() Session error: {error}')
@@ -529,11 +540,12 @@ async def check_username_handler(callback: CallbackQuery, state: FSMContext):
         else:
             global main_menu
             main_menu = await callback.message.answer(
-                await messages.MENU_TEXT(profile.status),
+                await messages.MENU_TEXT(profile.status, user.sub_status, user.sub_end_date),
                 reply_markup= await keyboards.menu_keyboard(profile.status)
             )
     except Exception as error:
         print(f'check_username_handler() error: {error}')
+
 
 # Вывод анкеты при лайке
 @dp.callback_query(F.data.contains('check_profile_who_liked_me'))
@@ -605,6 +617,7 @@ async def check_profile_who_liked_me(callback: CallbackQuery, state: FSMContext)
     except Exception as error:
         print(f'check_profile_who_liked_me() error: {error}')
 
+
 # Вывод анкет при поиске
 @dp.callback_query(F.data.contains('who_liked_me'))
 async def who_liked_me(callback: CallbackQuery, state: FSMContext):
@@ -664,8 +677,9 @@ async def who_liked_me(callback: CallbackQuery, state: FSMContext):
     except Exception as error:
         print(f'who_liked_me() error: {error}')
 
+
 # Вывод анкет при поиске
-@dp.callback_query(F.data == 'check_profiles')
+@dp.callback_query(F.data.contains('check_profiles'))
 async def check_profiles_handler(callback: CallbackQuery, state: FSMContext):
     # Сброс состояния при его налиции
     await state.clear()
@@ -675,6 +689,9 @@ async def check_profiles_handler(callback: CallbackQuery, state: FSMContext):
         async for session in database.get_session():
             # Получение данных о своей анкете
             my_profile = await database.get_profile_information(session, callback.from_user.id)
+
+            # Получение данных о пользователе
+            user = await database.get_user_information(session, callback.from_user.id)
 
             if my_profile.status == 'wait':
                 await callback.answer(
@@ -715,7 +732,7 @@ async def check_profiles_handler(callback: CallbackQuery, state: FSMContext):
             profile = await database.get_profile_id_by_filters(session, my_profile)
 
     except Exception as error:
-        print(f'check_profiles Session error: {error}')
+        print(f'check_profiles_handler Session error: {error}')
         await callback.answer(
             f'Ошибка: {error}',
             show_alert= True
@@ -723,7 +740,6 @@ async def check_profiles_handler(callback: CallbackQuery, state: FSMContext):
 
     try:
         if profile is not None:
-            # print(profile.id)
 
             # Проверка на число фото больше одного
             if len(profile.photos) != 1:
@@ -752,18 +768,21 @@ async def check_profiles_handler(callback: CallbackQuery, state: FSMContext):
             )
 
             # global main_menu
-            main_menu = await callback.message.answer_photo(
-                photo= FSInputFile('bot/design/menu.jpeg'),
-                caption= await messages.MENU_TEXT(my_profile.status),
-                reply_markup= await keyboards.menu_keyboard(my_profile.status)
-            )
+            if callback.data.split()[1] != 'from_menu':
+                main_menu = await callback.message.answer_photo(
+                    photo= FSInputFile('bot/design/menu.jpeg'),
+                    caption= await messages.MENU_TEXT(my_profile.status, user.sub_status, user.sub_end_date),
+                    reply_markup= await keyboards.menu_keyboard(my_profile.status),
+                    parse_mode= 'html'
+                )
 
     except Exception as error:
-        print(f'check_profiles error: {error}')
+        print(f'check_profiles_handler error: {error}')
         await callback.answer(
             f'Ошибка: {error}',
             show_alert= True
         )
+
 
 # Лайк/дизлайк
 @dp.callback_query(F.data.contains('rate'))
@@ -810,7 +829,8 @@ async def like_dislike_handler(callback: CallbackQuery, state: FSMContext):
 
     # Показ новой анкеты
     await check_profiles_handler(callback, state)
-            
+
+
 # Жалоба
 @dp.callback_query(F.data.contains('warn'))
 async def warn_handler(callback: CallbackQuery, state: FSMContext):
@@ -822,7 +842,7 @@ async def warn_handler(callback: CallbackQuery, state: FSMContext):
     # Создание сессии
     try:
         async for session in database.get_session():
-            new_warns_amount = await database.make_warn(session, profile_id)
+            new_warns_amount = await database.make_warn(session, callback.from_user.id, profile_id)
 
             await callback.answer(
                 messages.MAKE_WARN,
@@ -854,6 +874,7 @@ async def warn_handler(callback: CallbackQuery, state: FSMContext):
 
     # Показ новой анкеты
     await check_profiles_handler(callback, state)
+
 
 # Листание фото
 @dp.callback_query(F.data.contains('check_photo'))
@@ -892,12 +913,14 @@ async def check_photo_handler(callback: CallbackQuery, state: FSMContext):
     except Exception as error:
         print(f'check_photo_handler() error: {error}')
 
+
 # Команда /support
 @dp.message(F.text == '/support')
 async def support(message: Message, state: FSMContext):
     # Сброс состояния при его налиции
     await state.clear()
     await message.answer(messages.SUPPORT_TEXT)
+
 
 # Команда /corbots
 @dp.message(F.text == '/corbots')
@@ -911,6 +934,7 @@ async def corbots(message: Message, state: FSMContext):
         parse_mode= 'HTML',
         reply_markup= keyboards.corbots_keyboard
     )
+
 
 # Запуск бота
 async def main():

@@ -44,6 +44,7 @@ async def admin_menu(message: CallbackQuery, state: FSMContext):
     except Exception as error:
         print(f'admin_menu error: {error}')
 
+
 # Рассылка
 @router_admin.message(F.text.in_({'📩 Рассылка всем', '📩 Рассылка всем без анкет'}))
 async def message_to_all_handler(message: Message, state: FSMContext):
@@ -76,6 +77,7 @@ async def message_to_all_handler(message: Message, state: FSMContext):
     except Exception as error:
         print(f'message_to_all_handler error: {error}')
 
+
 # Запрос фото, после запроса текста
 @router_admin.message(MessageToUsers.text)
 async def photo(message: Message, state: FSMContext):
@@ -93,6 +95,7 @@ async def photo(message: Message, state: FSMContext):
 
     await state.set_state(MessageToUsers.photo)
 
+
 # Нажатие на кнопку "Без фото"
 @router_admin.callback_query(F.data == 'WithoutPhoto')
 async def without_photo(callback: CallbackQuery, state: FSMContext):
@@ -107,6 +110,7 @@ async def without_photo(callback: CallbackQuery, state: FSMContext):
         entities=entities,
         disable_web_page_preview=True
     )
+
 
 # Скачивание фото после его добавления пользователем, либо при ошибке просит заново скинуть фото
 @router_admin.message(MessageToUsers.photo)
@@ -137,6 +141,7 @@ async def add_photo(message: Message, state: FSMContext):
             f'Отправьте фото для этого текста',
             reply_markup= keyboards.question_to_send
         )
+
 
 # Отправка текста с фото всем пользователям
 @router_admin.callback_query(F.data == 'SendToAll')
@@ -223,6 +228,7 @@ async def send_to_all(callback: CallbackQuery, state: FSMContext):
             disable_web_page_preview= True
         )
 
+
 # Отмена отправки текста с фото пользователям
 @router_admin.callback_query(F.data == 'DontSendToAll')
 async def dont_send_photo(callback: CallbackQuery, state: FSMContext):
@@ -245,6 +251,7 @@ async def dont_send_photo(callback: CallbackQuery, state: FSMContext):
 
     # Сброс состояния
     await state.clear()
+
 
 # Статистика
 @router_admin.message(F.text == '📋 Статистика')
@@ -271,9 +278,11 @@ async def stats_handler(message: Message, state: FSMContext):
                 waited_profiles_amount = stats['waited_profiles_amount']
                 men_profiles_amount = stats['men_profiles_amount']
                 women_profiles_amount =stats['women_profiles_amount']
+                men_profiles_closed_amount =stats['men_profiles_closed_amount']
+                women_profiles_closed_amount = stats['women_profiles_closed_amount']
 
                 await bot.edit_message_text(
-                    f'<b>📋 Статистика</b>\n\nВсего пользователей: <b>{users_amount}</b>\n\n<b>Анкеты</b>\nОткрытые: <b>{active_profiles_amount} шт.</b>\nЗакрытые: <b>{closed_profiles_amount}шт.</b>\nОжидают проверки: <b>{waited_profiles_amount} шт.</b>\n\nМужчины: <b>{men_profiles_amount} чел.</b>\nЖенщины: <b>{women_profiles_amount} чел.</b>',
+                    f'<b>📋 Статистика</b>\n\nВсего пользователей: <b>{users_amount}</b>\n\n<b>Анкеты\n</b>Мужчины: <b>{men_profiles_amount} чел. ({men_profiles_closed_amount} скрыто)</b>\nЖенщины: <b>{women_profiles_amount} чел. ({women_profiles_closed_amount} скрыто)</b>\nВсего открытых: <b>{active_profiles_amount} шт.</b>\nВсего закрытых: <b>{closed_profiles_amount} шт.</b>\n\nОжидают проверки: <b>{waited_profiles_amount} шт.</b>\n\n',
                     message.chat.id,
                     mes.message_id,
                     parse_mode= 'html'
@@ -284,6 +293,7 @@ async def stats_handler(message: Message, state: FSMContext):
 
     except Exception as error:
         print(f'stats error: {error}')
+
 
 # Проверка созданных/заблокированных анкет
 @router_admin.message(F.text == '🔍 Начать проверку')
@@ -350,6 +360,7 @@ async def verification_profiles_handler(message: Message, state: FSMContext):
     except Exception as error:
         print(f'verification_profiles_handler() error: {error}')
         await message.answer(f'Ошибка: {error}')
+
 
 # Листание фото
 @router_admin.callback_query(F.data.contains('photo_verification'))
@@ -432,6 +443,7 @@ async def accept_profile_handler(callback: CallbackQuery, state: FSMContext):
     except Exception as error:
         print(f'accept_profile_handler error: {error}')
 
+
 # Отклонение созданной анкеты 
 @router_admin.callback_query(F.data.contains('cancel_profile'))
 async def cancel_profile_handler(callback: CallbackQuery, state: FSMContext):
@@ -470,6 +482,7 @@ async def cancel_profile_handler(callback: CallbackQuery, state: FSMContext):
     except Exception as error:
         print(f'cancel_profile_handler error: {error}')
 
+
 # Разблокировка анкеты 
 @router_admin.callback_query(F.data.contains('unblock'))
 async def unblock_profile_handler(callback: CallbackQuery, state: FSMContext):
@@ -506,6 +519,7 @@ async def unblock_profile_handler(callback: CallbackQuery, state: FSMContext):
 
     except Exception as error:
         print(f'unblock_profile_handler error: {error}')
+
 
 # Разблокировка анкеты 
 @router_admin.callback_query(F.data.contains('ban'))

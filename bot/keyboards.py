@@ -28,7 +28,7 @@ async def menu_keyboard(status):
         #     InlineKeyboardButton(text= '🎁 Бонусы', callback_data= 'bonuses')
         # ],
         [
-            InlineKeyboardButton(text= '❤️ Смотреть анкеты', callback_data= 'check_profiles')
+            InlineKeyboardButton(text= '❤️ Смотреть анкеты', callback_data= 'check_profiles from_menu')
         ]
     ]
 

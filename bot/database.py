@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import select, and_, not_
 import datetime
 import pytz
+import random
 from models import UserModel, ProfileModel, ActionModel
 
 
@@ -119,8 +120,8 @@ class DataBase:
 
     # Поиск подходящей анкеты
     async def get_profile_id_by_filters(self, session, my_profile):
+        # Получение данных для поиска анкеты, относительно моей анкеты
         try:
-            # Получение данных для поиска анкеты
             my_id = my_profile.id                       # Мой id
             my_city = my_profile.city                   # Мой город
             my_preferences = my_profile.preferences     # Мои предпочтения
@@ -154,14 +155,19 @@ class DataBase:
         except Exception as error:
             print(f'get_profile_id_by_filters() info about my profile error: {error}')
 
+
         # Поиск подходящей анкеты
         try:
-            # Фильтры: (С ГОРОДОМ)
-            # 1) По моим предпочтениям
-            # 2) По городу
-            # 3) Совпадение предпочтений
-            # 4) Открытость анкеты
-            # 5) Отсутствие оценки
+            '''
+            Фильтры: (С ГОРОДОМ)
+            1) По моим предпочтениям
+            2) По городу
+            3) Совпадение предпочтений
+            4) Открытость анкеты
+            5) Отсутствие оценки
+
+            Вывод рандомной анкеты из списка полученных по фильтрам
+            '''
             result = await session.execute(
                 select(ProfileModel)
                     .where(
@@ -191,14 +197,18 @@ class DataBase:
             # Если есть анкеты с фильтром по городу, то выводятся
             if len(result_list) != 0:
                 # print(f'С фильтром по городу: {result_list[0]}')
-                return result_list[0]
+                return random.choice(result_list)
 
 
-            # Фильтры: (БЕЗ ГОРОДА)
-            # 1) По моим предпочтениям
-            # 2) Совпадение предпочтений
-            # 3) Открытость анкеты
-            # 4) Отсутствие оценки
+            '''
+            Фильтры: (БЕЗ ГОРОДА)
+            1) По моим предпочтениям
+            2) Совпадение предпочтений
+            3) Открытость анкеты
+            4) Отсутствие оценки
+
+            Вывод рандомной анкеты из списка полученных по фильтрам
+            '''
             result = await session.execute(
                 select(ProfileModel)
                     .where(
@@ -225,8 +235,19 @@ class DataBase:
             # Если есть анкеты без фильтра по городу
             if len(result_list) != 0:
                 # print(f'Без фильтра по городу: {result_list[0]}')
-                return result_list[0]
+                return random.choice(result_list)
 
+
+            '''
+            Вывод анкет по кругу:
+            1) С дизлайками, поставленными не ранее 1 минуты
+            2) Которые никогда не были лайкнуты
+            3) С проверкой на актуальные предпочтения и открытость анкеты
+
+            Вывод рандомной анкеты из списка полученных по фильтрам
+            '''
+            # Определение времени 1 минуту назад
+            one_minute_ago = datetime.datetime.now(pytz.timezone('Europe/Moscow')) - datetime.timedelta(minutes=1)
 
             # Получение списка id, кому ставил дизлайк
             execute = await session.execute(
@@ -234,48 +255,72 @@ class DataBase:
                     .where(
                         and_(
                             ActionModel.id_creator == my_id,
-                            ActionModel.status == 'dislike'
+                            ActionModel.status == 'dislike',
                         ),
                     )
                 )
             disliked_ids = [row for row in execute.scalars()]
 
-            # Получение списка id, кому ставил лайк
+            # Получение списка id, кому ставил дизлайк за последние 5 минут
             execute = await session.execute(
                 select(ActionModel.id_receiver)
                     .where(
                         and_(
                             ActionModel.id_creator == my_id,
-                            ActionModel.status == 'like'
+                            ActionModel.status == 'dislike',
+                            ActionModel.creation_date > one_minute_ago
+                        ),
+                    )
+                )
+            disliked_one_minute_ids = [row for row in execute.scalars()]
+
+            # Получение списка id, кому ставил лайк и предупреждение
+            execute = await session.execute(
+                select(ActionModel.id_receiver)
+                    .where(
+                        and_(
+                            ActionModel.id_creator == my_id,
+                            ActionModel.status.in_(['like', 'warn'])
                         )
                     )
                 )
-            liked_ids = [row for row in execute.scalars()]
+            liked_warned_ids = [row for row in execute.scalars()]
 
-            # Удаление из disliked_ids всех значений, которые совпадают с liked_ids
-            disliked_ids = [id_ for id_ in disliked_ids if id_ not in liked_ids]
+            # Проверка на актуальные совпадения предпочтений у анкет
+            result = await session.execute(
+                select(ProfileModel.id)
+                    .where(
+                        and_(
+                            ProfileModel.id.in_(disliked_ids),
+                            ProfileModel.gender.in_(my_preferences),
+                            ProfileModel.preferences.in_(need_preferences),
+                            ProfileModel.status == 'open'
+                        ),
+                    )
+                )
+            actual_profiles = [row for row in result.scalars()]
 
-            # Выбор анкеты, которой ставил дизлайк с наименьшим количеством просмотров
-            reps = {}
-            min_reps = None
-            first_min_reps = None
-            # Подсчитываем количество повторений каждого элемента
-            for el in disliked_ids:
-                if el in reps:
-                    reps[el] += 1
-                else:
-                    reps[el] = 1
-            # Находим первое значение с наименьшим количеством повторений
-            for el in disliked_ids:
-                el_reps = reps[el]
-                if min_reps is None or el_reps < min_reps:
-                    min_reps = el_reps
-                    first_min_reps = el
+            # Удаление из disliked_ids всех значений, которые совпадают с liked_warned_ids
+            disliked_ids = [id_ for id_ in disliked_ids if id_ not in liked_warned_ids]
+
+            # Удаление из disliked_ids всех значений, которые совпадают с disliked_one_minute_ids
+            disliked_ids = [id_ for id_ in disliked_ids if id_ not in disliked_one_minute_ids]
+
+            # Оставление из disliked_ids всех значений, которые совпадают с actual_profiles
+            disliked_ids = [id_ for id_ in disliked_ids if id_ in actual_profiles]
+
+            # # print(f'{actual_profiles=}')
+            # # print(f'{disliked_ids=}')
+            # # print(f'{liked_ids=}')
+            # # print(f'По кругу кому поставил дизлайк: {profile.id}')
 
             # Получение объекта анкеты
-            profile = await session.get(ProfileModel, str(first_min_reps))
-            # print(f'По кругу кому поставил дизлайк: {profile.id}')
+            profile = await session.get(ProfileModel, str(random.choice(disliked_ids)))
+
             return profile
+            
+        except IndexError:
+            return None
 
         except Exception as error:
             print(f'get_profile_id_by_filters() error: {error}')
@@ -304,7 +349,7 @@ class DataBase:
 
 
     # Создание жалобы
-    async def make_warn(self, session, profile_id):
+    async def make_warn(self, session, user_id, profile_id):
         try:
             profile = await session.get(ProfileModel, profile_id)
 
@@ -313,6 +358,18 @@ class DataBase:
             # Если набирается 3 жалобы на анкете, то она блокируется и отправляется на проверку админам
             if profile.warns == 3:
                 profile.status = 'blocked'
+
+            # Добавляется запись в таблицу оценок
+            new_action = ActionModel(
+                creation_date = datetime.datetime.now(pytz.timezone('Europe/Moscow')),
+                id_creator = str(user_id),
+                id_receiver = str(profile_id),
+                status = 'warn',
+                message = None
+            )
+
+            # Добавление данных в сессию
+            session.add(new_action)
 
             # Добавление данных в бд и сохранение
             await session.commit()
@@ -339,6 +396,7 @@ class DataBase:
 
         except Exception as error:
             print(f'notify_admins() error: {error}')
+
 
     # Проверка на админа
     async def check_admin(self, session, user_id):
@@ -435,6 +493,18 @@ class DataBase:
                 )
             men_profiles_amount = len(men_profiles.fetchall())
 
+            # Количество закрытых анкет мужчин
+            men_profiles = await session.execute(
+                select(ProfileModel)
+                    .where(
+                        and_(
+                            ProfileModel.gender == 'Мужчина',
+                            ProfileModel.status == 'closed'
+                        )
+                    )
+                )
+            men_profiles_closed_amount = len(men_profiles.fetchall())
+
             # Количество анкет женщин
             women_profiles = await session.execute(
                 select(ProfileModel)
@@ -447,13 +517,27 @@ class DataBase:
                 )
             women_profiles_amount = len(women_profiles.fetchall())
 
+            # Количество закрытых анкет женщин
+            women_profiles = await session.execute(
+                select(ProfileModel)
+                    .where(
+                        and_(
+                            ProfileModel.gender == 'Женщина',
+                            ProfileModel.status == 'closed'
+                        )
+                    )
+                )
+            women_profiles_closed_amount = len(women_profiles.fetchall())
+
             return {
                 'users_amount': users_amount,
                 'active_profiles_amount': active_profiles_amount,
                 'closed_profiles_amount': closed_profiles_amount,
                 'waited_profiles_amount': waited_profiles_amount,
                 'men_profiles_amount': men_profiles_amount,
-                'women_profiles_amount': women_profiles_amount
+                'women_profiles_amount': women_profiles_amount,
+                'men_profiles_closed_amount': men_profiles_closed_amount,
+                'women_profiles_closed_amount': women_profiles_closed_amount
             }
 
         except Exception as error:
