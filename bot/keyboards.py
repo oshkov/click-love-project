@@ -64,7 +64,7 @@ async def profile_keyboard(id, more_photo= False, next_photo_num= 1):
 async def recreate_keyboard(user_id, username):
     markup = [
         [
-            InlineKeyboardButton(text='❤️ Изменить анкету', url=f'https://click-love.ru/registration/{user_id}/{username}')
+            InlineKeyboardButton(text='❤️ Изменить анкету', url=f'https://click-love.ru/edit_profile/{user_id}/{username}')
         ],
         [
             InlineKeyboardButton(text= '🏠 Меню', callback_data= 'menu')
@@ -139,20 +139,20 @@ async def recreate_keyboard_by_admins(user_id, username):
 
 
 # Клавиатура для проверки анкет на которые жаловались
-async def my_profile_keyboard(id, more_photo= False, next_photo_num= 1):
+async def my_profile_keyboard(user_id, username, more_photo= False, next_photo_num= 1):
     markup = [
         [
             InlineKeyboardButton(text= '🏠 Меню', callback_data= 'menu'),
         ],
         [
-            InlineKeyboardButton(text= '✍️ Редактировать анкету', callback_data= 'recreate_profile')
+            InlineKeyboardButton(text= '✍️ Редактировать анкету', url=f'https://click-love.ru/edit_profile/{user_id}/{username}')
         ],
         [
             InlineKeyboardButton(text= '❤️ Смотреть анкеты', callback_data= 'check_profiles'),
         ]
     ]
     if more_photo:
-        markup.insert(0,[InlineKeyboardButton(text= '📸 Смотреть еще фото', callback_data= f'my_photo_check {id} {next_photo_num}')])
+        markup.insert(0,[InlineKeyboardButton(text= '📸 Смотреть еще фото', callback_data= f'my_photo_check {user_id} {next_photo_num}')])
 
     keyboard = InlineKeyboardMarkup(inline_keyboard= markup)
     return keyboard

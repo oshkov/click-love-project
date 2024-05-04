@@ -43,11 +43,11 @@ a {
 }
 
 .corbots_logo {
-    margin: 20% 0 15% 0;
+    margin: 10% 0 0 0;
 }
 
 .form_block {
-    margin: 20% 0;
+    margin: 10% 0;
 }
 
 button {
@@ -143,10 +143,6 @@ textarea {
     border-radius: 22px;
     box-shadow: 0px 3px 24px 0px rgba(34, 60, 80, 0.1);
     resize: none;
-}
-
-#age_form, #gender_form, #city_form, #preferences_form, #target_form, #about_form, #photo_form {
-    display: none;
 }
 
 
@@ -328,11 +324,14 @@ label.agreement_text {
 
 
 /* ЗАГРУЗКА ФОТО */
-#preview_imgs {
+#preview_imgs_main, #preview_imgs_more {
     display: flex;
     flex-wrap: wrap;
     width: 80%;
-    margin: 0 10%;
+    margin: 5% 10% 0 10%;
+}
+#more_photo_block {
+    margin: 5% 0 0 0;
 }
 .image_block {
     width: 40%;
@@ -379,4 +378,37 @@ img.license {
     margin: 5% 0 0 0;
     border-radius: 10px;
     filter: drop-shadow(0px 3px 24px rgba(34, 60, 80, 0.1));
+}
+
+
+
+
+/* АНИМАЦИЯ ЗАГРУЗКИ */
+#loading {
+    display: none;
+}
+.loader {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100px;
+}
+.circle {
+    width: 20px;
+    height: 20px;
+    background-color: #9094ff;
+    border-radius: 50%;
+    margin: 0 10px;
+    opacity: 0;
+    animation: blink 0.4s infinite alternate;
+}
+.circle:nth-child(2) {
+    animation-delay: 0.2s;
+}
+.circle:nth-child(3) {
+    animation-delay: 0.4s;
+}
+@keyframes blink {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
 }

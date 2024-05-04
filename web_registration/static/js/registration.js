@@ -1,10 +1,8 @@
-const MAX_MB_PHOTO_SIZE = 5             // Максимальный размер фото в МБ
-const MAX_PHOTO_AMOUNT = 5              // Максимальное количество загруженных фото
-
-
 // Предпросмотр фото после выбора и проверка на размер фото
-let photoInput = document.getElementById('photo_input')
-photoInput.addEventListener('change', () => preview(MAX_MB_PHOTO_SIZE, MAX_PHOTO_AMOUNT))
+let photoInputMain = document.getElementById('photo_input_main')
+photoInputMain.addEventListener('change', () => preview(MAX_MB_PHOTO_SIZE, MAX_PHOTO_AMOUNT, 'main'))
+let photoInputMore = document.getElementById('photo_input_more')
+photoInputMore.addEventListener('change', () => preview(MAX_MB_PHOTO_SIZE, MAX_PHOTO_AMOUNT, 'more'))
 
 
 // Убирается ошибка при вводе данных
@@ -154,11 +152,21 @@ continueTarget.addEventListener('click', function() {
 
 
 // Переход от запроса целей к запросу О себе
+let inputPhotosMain = document.getElementById('photo_input_main')
+let photosMoreBlock = document.getElementById('more_photo_block')
+
+inputPhotosMain.addEventListener('change', function () {
+    if (inputPhotosMain.value === '') {
+        photosMoreBlock.style.display = 'none'
+    } else {
+        photosMoreBlock.style.display = 'block'
+    }
+})
+
 let continuePhoto = document.getElementById('continue_photo')
 continuePhoto.addEventListener('click', function() {
     // Проверка на наличие фото
-    let inputPhotos = document.getElementById('photo_input')
-    if (inputPhotos.value === '') {
+    if (inputPhotosMain.value === '') {
         document.getElementById('error_photo').textContent = 'Необходимо загрузить фото'
         return
     }
@@ -178,6 +186,11 @@ registrateButton.addEventListener('click', function() {
         document.getElementById('error_agreement').textContent = 'Для регистрации необходимо принять соглашение'
         return
     }
+
+    // Вывод загрузки
+    document.getElementById('about_form').style.display = 'none'
+    document.getElementById('loading').style.display = 'block'
+    document.getElementById('logo_h2').textContent = 'Создание анкеты'
 
     // Отмена отправки формы по умолчанию
     event.preventDefault()

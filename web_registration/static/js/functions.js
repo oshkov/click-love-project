@@ -1,10 +1,18 @@
 // Предпросмотр фото и проверка на размер файла
-function preview(MAX_MB_SIZE, MAX_PHOTO_AMOUNT) {
-    let inputPhotos = document.getElementById('photo_input')    // Input из html
-    let amountPhotos = inputPhotos.files.length                 // Общее количество фото
+function preview(MAX_MB_SIZE, MAX_PHOTO_AMOUNT, type) {
+    let inputPhotos                 // Input из html
+    let previewImgsBlock
+    if (type === 'main') {
+        inputPhotos = document.getElementById('photo_input_main')
+        previewImgsBlock = document.getElementById('preview_imgs_main')
+    } else {
+        inputPhotos = document.getElementById('photo_input_more')
+        previewImgsBlock = document.getElementById('preview_imgs_more')
+    }
+
+    let amountPhotos = inputPhotos.files.length                      // Общее количество фото
 
     // Очистка от старых фото
-    let previewImgsBlock = document.getElementById('preview_imgs')
     previewImgsBlock.innerHTML = ''                      // Очистка блока с предпросмотром фото
 
     // Проверка на количество фото
@@ -29,7 +37,7 @@ function preview(MAX_MB_SIZE, MAX_PHOTO_AMOUNT) {
             </div>
             `
 
-            preview_imgs.insertAdjacentHTML('afterbegin', htmlBlock);
+            previewImgsBlock.insertAdjacentHTML('afterbegin', htmlBlock);
             num += 1
         }
 

@@ -434,7 +434,7 @@ async def accept_profile_handler(callback: CallbackQuery, state: FSMContext):
             await bot.send_photo(
                 chat_id= profile_id,
                 photo= FSInputFile('bot/design/accepted_profile.jpeg'),
-                caption= 'Ваша анкета подтверждена!\n\nНачинайте занкомиться 😍',
+                caption= 'Ваша анкета подтверждена!\n\nНачинайте знакомиться 😍',
                 reply_markup= keyboards.start_keyboard
             )
         except:

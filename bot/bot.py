@@ -170,7 +170,7 @@ async def my_profile_handler(callback: CallbackQuery, state: FSMContext):
                 caption= await messages.PROFILE_TEXT(name, age, city, about, target),
                 parse_mode= 'HTML'
             ),
-            reply_markup= await keyboards.my_profile_keyboard(callback.from_user.id, more_photo= more_photo)
+            reply_markup= await keyboards.my_profile_keyboard(callback.from_user.id, callback.from_user.username, more_photo= more_photo)
         )
 
     except Exception as error:
@@ -240,7 +240,7 @@ async def myprofile_command_handler(message: Message, state: FSMContext):
             photo= FSInputFile(f'photos/{photo}'),
             caption= await messages.PROFILE_TEXT(name, age, city, about, target),
             parse_mode= 'HTML',
-            reply_markup= await keyboards.my_profile_keyboard(message.from_user.id, more_photo= more_photo)
+            reply_markup= await keyboards.my_profile_keyboard(message.from_user.id, message.from_user.username, more_photo= more_photo)
         )
 
     except Exception as error:
@@ -276,7 +276,7 @@ async def my_photo_check_handler(callback: CallbackQuery, state: FSMContext):
                 caption= await messages.PROFILE_TEXT(profile.name, profile.age, profile.city, profile.about, profile.target),
                 parse_mode='HTML'
             ), 
-            reply_markup= await keyboards.my_profile_keyboard(profile.id, more_photo= True, next_photo_num= next_photo_num)
+            reply_markup= await keyboards.my_profile_keyboard(callback.from_user.id, callback.from_user.username, more_photo= True, next_photo_num= next_photo_num)
         )
     except Exception as error:
         print(f'my_photo_check_handler() error: {error}')
