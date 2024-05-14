@@ -3,6 +3,7 @@ from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
 from aiogram.fsm.context import FSMContext
 
 from bot.database import DataBase
+from bot.referral_program import PyRepka
 import bot.keyboards as keyboards
 import bot.messages as messages
 import config
@@ -12,6 +13,7 @@ bot = Bot(token=config.BOT_TOKEN)
 router_starting = Router()
 
 database = DataBase(config.DATABASE_URL)
+referral_program = PyRepka(config.REFERRAL_TOKEN, config.BOT_USERNAME, config.REFERRAL_IP, config.REFERRAL_PORT)
 
 
 # Команда /start
@@ -27,6 +29,21 @@ async def accept_agreement_handler(message: Message, state: FSMContext):
         reply_markup= keyboards.check_bot,
         parse_mode= 'HTML'  
     )
+
+    # id пригласителя
+    try:
+        invited_by = message.text.split()[1]
+    except:
+        invited_by = None
+
+    # Добавление в реферальную систему (Репка)
+    print(referral_program.add_user_to_ref(
+        message.from_user.id,
+        message.from_user.first_name,
+        message.from_user.last_name,
+        message.from_user.username,
+        invited_by
+    ))
 
 # Проверка юзернейма
 @router_starting.callback_query(F.data.contains('check_bot'))

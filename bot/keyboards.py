@@ -21,6 +21,9 @@ async def menu_keyboard(status):
         [
             InlineKeyboardButton(text= '😊 Как выглядит моя анкета', callback_data= 'my_profile')
         ],
+        [
+            InlineKeyboardButton(text= '🎃РЕПКА', callback_data= 'referral_program')
+        ],
         # [
         #     InlineKeyboardButton(text= '✍️ Редактировать анкету', callback_data= 'recreate_profile')
         # ],
@@ -277,3 +280,18 @@ async def demo_profile_keyboard(gender, number):
     ]
     demo_profile_keyboard = InlineKeyboardMarkup(inline_keyboard= markup)
     return demo_profile_keyboard
+
+
+# Клавиатура реферальной системы
+referrals_keyboard = [
+    [
+        InlineKeyboardButton(text= '👨‍👧‍👦 Пригласить друзей', callback_data= 'invite'),
+    ],
+    [
+        InlineKeyboardButton(text= '🏠 Меню', callback_data= 'menu'),
+    ],
+    [
+        InlineKeyboardButton(text= '❤️ Смотреть анкеты', callback_data= 'check_profiles')
+    ]
+]
+referrals_keyboard = InlineKeyboardMarkup(inline_keyboard= referrals_keyboard)

@@ -1,8 +1,9 @@
-from aiogram import Bot, Dispatcher, F, exceptions
+from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto, Update
 from aiogram.fsm.context import FSMContext
 
 from bot.database import DataBase
+from bot.referral_program import PyRepka
 import bot.keyboards as keyboards
 import bot.messages as messages
 import bot.admin_panel as admin_panel
@@ -17,6 +18,7 @@ print('Бот запущен')
 
 
 database = DataBase(config.DATABASE_URL)
+referral_program = PyRepka(config.REFERRAL_TOKEN, config.BOT_USERNAME, config.REFERRAL_IP, config.REFERRAL_PORT)
 
 
 # Команда /menu
@@ -912,6 +914,90 @@ async def check_photo_handler(callback: CallbackQuery, state: FSMContext):
         )
     except Exception as error:
         print(f'check_photo_handler() error: {error}')
+
+
+# Команда /referrals
+@dp.message(F.text == '/referrals')
+async def referrals_command_handler(message: Message, state: FSMContext):
+    # Сброс состояния при его налиции
+    await state.clear()
+
+    # Проверка на наличие юзернейма
+    if message.from_user.username is None:
+        await message.answer(
+            messages.CREATE_USERNAME,
+            reply_markup= keyboards.check_username
+        )
+        return
+    
+    try:
+        # Добавление в реферальную систему (Репка)
+        print(referral_program.add_user_to_ref(
+            message.from_user.id,
+            message.from_user.first_name,
+            message.from_user.last_name,
+            message.from_user.username
+        ))
+
+        referral_data = referral_program.get_referral_users(message.from_user.id)
+
+        await message.answer_photo(
+            photo= FSInputFile(f'bot/design/referral_program.jpeg'),
+            caption= await messages.REFERRAL_PROGRAM(message.from_user.id, referral_data.json()),
+            parse_mode='HTML',
+            reply_markup= keyboards.referrals_keyboard
+        )
+    except Exception as error:
+        print(f'referral_program_handler() error: {error}')
+    
+
+# Реферальная программа
+@dp.callback_query(F.data == 'referral_program')
+async def referral_program_handler(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
+    await state.clear()
+
+    try:
+        # Добавление в реферальную систему (Репка)
+        print(referral_program.add_user_to_ref(
+            callback.from_user.id,
+            callback.from_user.first_name,
+            callback.from_user.last_name,
+            callback.from_user.username
+        ))
+
+        referral_data = referral_program.get_referral_users(callback.from_user.id)
+
+        await callback.message.edit_media(
+            media= InputMediaPhoto(
+                media= FSInputFile(f'bot/design/referral_program.jpeg'),
+                caption= await messages.REFERRAL_PROGRAM(callback.from_user.id, referral_data.json()),
+                parse_mode='HTML'
+            ),
+            reply_markup= keyboards.referrals_keyboard
+        )
+    except Exception as error:
+        print(f'referral_program_handler() error: {error}')
+
+
+# Пригласительное письмо
+@dp.callback_query(F.data == 'invite')
+async def referral_program_invite_handler(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
+    await state.clear()
+
+    try:
+        await callback.message.answer(
+            await messages.REFERRAL_INVITE(callback.from_user.id),
+            parse_mode= 'HTML'
+        )
+
+        await callback.answer(
+            'Отправь это сообщение своим друзьям!',
+            show_alert= True
+        )
+    except Exception as error:
+        print(f'referral_program_invite_handler() error: {error}')
 
 
 # Команда /support
