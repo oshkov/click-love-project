@@ -1,9 +1,9 @@
 from aiogram import Bot, F, Router
 from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
 from aiogram.fsm.context import FSMContext
+from pyrepka import PyRepka
 
 from bot.database import DataBase
-from bot.referral_program import PyRepka
 import bot.keyboards as keyboards
 import bot.messages as messages
 import config
@@ -37,13 +37,13 @@ async def accept_agreement_handler(message: Message, state: FSMContext):
         invited_by = None
 
     # Добавление в реферальную систему (Репка)
-    print(referral_program.add_user_to_ref(
+    referral_program.add_user_to_ref(
         message.from_user.id,
         message.from_user.first_name,
         message.from_user.last_name,
         message.from_user.username,
         invited_by
-    ))
+    )
 
 # Проверка юзернейма
 @router_starting.callback_query(F.data.contains('check_bot'))
@@ -102,21 +102,6 @@ async def check_bot_handler(callback: CallbackQuery, state: FSMContext):
     try:
         # Проверка на наличие анкеты
         if profile is None:
-            # await callback.message.answer_video(
-            #     video= FSInputFile('bot/design/start.mp4'),
-            #     caption= messages.START_TEXT_NEW_USER,
-            #     reply_markup= await keyboards.registrate(callback.from_user.id, callback.from_user.username)
-            # )
-
-            # await callback.message.edit_media(
-            #     media= InputMediaPhoto(
-            #         media= FSInputFile('bot/design/gift.jpeg'),
-            #         caption= messages.START_TEXT_NEW_USER_3,
-            #         parse_mode= 'HTML'
-            #     ),
-            #     reply_markup= await keyboards.registrate(callback.from_user.id, callback.from_user.username)
-            # )
-
             await callback.message.edit_media(
                 media= InputMediaPhoto(
                     media= FSInputFile('bot/design/gender.jpeg'),
@@ -200,7 +185,7 @@ async def demo_profiles_handler(callback: CallbackQuery, state: FSMContext):
         # Если пролистаны все демо анкеты, то сообщение зарегаться
         else:
             await callback.message.answer_photo(
-                photo= FSInputFile('bot/design/gift.jpeg'),
+                photo= FSInputFile('bot/design/registrate.jpeg'),
                 caption= messages.START_TEXT_NEW_USER_3,
                 parse_mode= 'HTML',
                 reply_markup= await keyboards.registrate(callback.from_user.id, callback.from_user.username)

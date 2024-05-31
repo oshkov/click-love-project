@@ -28,37 +28,50 @@ async def start_registration(
     session = Depends(database.get_session)
 ):
 
-    # Получение данных о пользователе
-    user_info = await database.get_profile_information(session, user_id)
+    # Получение данных об анкете пользователя
+    profile_info = await database.get_profile_information(session, user_id)
 
     # Если есть анкета, то проверяется ее статус
-    if user_info:
-        # Если анкета забанена, то выводит ошибку
-        if user_info.status == 'banned':
-            error_message = app_texts.BANNED
+    if profile_info:
 
-            # Создаем объект переадресации
-            response = RedirectResponse(url=f'/error/{user_id}/{username}/{error_message}', status_code=301)
-            return response
+        # Если анкета была отменена, то отправляет на регистрацию 
+        if profile_info.status == 'canceled':
+            return templates.TemplateResponse(
+                request=request,
+                name="registration.html"
+            )
 
-        # Если анкета заморожена, то выводит ошибку
-        elif user_info.status == 'blocked':
-            error_message = app_texts.BLOCKED
+        # Словарь с ошибками
+        error_messages = {
+            'banned': app_texts.BANNED,
+            'blocked': app_texts.BLOCKED,
+            'open': app_texts.WITH_PROFILE,
+            'closed': app_texts.WITH_PROFILE,
+            'wait': app_texts.WAIT_PROFILE
+        }
 
-            # Создаем объект переадресации
-            response = RedirectResponse(url=f'/error/{user_id}/{username}/{error_message}', status_code=301)
-            return response
-        
-        else:
-            error_message = app_texts.WITH_PROFILE
+        # Проверка статуса анкеты и установка сообщения об ошибке
+        error_message = error_messages.get(profile_info.status)
 
-            # Создаем объект переадресации
-            response = RedirectResponse(url=f'/error/{user_id}/{username}/{error_message}', status_code=301)
-            return response
+        # В случае иной ошибки
+        if error_message == None:
+            error_message = app_texts.SUPPORT_TEXT
+
+        # Данные для шаблона
+        context = {
+            'request': request,
+            'error_title': None,
+            'error_message': error_message
+        }
+
+        return templates.TemplateResponse(
+            "error.html",
+            context
+        )
 
     return templates.TemplateResponse(
         request=request,
-        name="index.html"
+        name="registration.html"
     )
 
 
@@ -98,27 +111,52 @@ async def registration(
             error = str(photo_list['error'])
             error_message = error.replace('/', '-')
 
-            # Создаем объект переадресации
+            # Переадресация
             response = RedirectResponse(url=f'/error/{user_id}/{username}/{error_message}', status_code=301)
             return response
 
 
-        # Добавление данных о пользователе в словарь
-        profile_info = {
-            'user_id': user_id,
-            'username': username,
-            'name': name,
-            'gender': gender,
-            'preferences': preferences,
-            'city': city,
-            'age': age,
-            'target': target,
-            'about': about,
-            'photo_list': photo_list['photo_list']
-        }
+        # Получение данных об анкете пользователя
+        profile_info = await database.get_profile_information(session, user_id)
 
-        # Создание или обновление анкеты
-        create_profile = await database.create_profile(session, profile_info)
+        # Если анкеты не было, то она создается
+        if profile_info is None:
+            # Добавление данных о пользователе в словарь
+            profile_info = {
+                'user_id': user_id,
+                'username': username,
+                'name': name,
+                'gender': gender,
+                'preferences': preferences,
+                'city': city,
+                'age': age,
+                'target': target,
+                'about': about,
+                'photo_list': photo_list['photo_list']
+            }
+
+            # Создание анкеты
+            create_profile = await database.create_profile(session, profile_info)
+
+        # Если анкета была отменена, то ее данные обновляются
+        elif profile_info.status == 'canceled':
+            # Добавление данных о пользователе в словарь
+            profile_info = {
+                'user_id': user_id,
+                'username': username,
+                'name': name,
+                'gender': gender,
+                'preferences': preferences,
+                'city': city,
+                'age': age,
+                'target': target,
+                'about': about,
+                'photo_list': photo_list['photo_list']
+            }
+
+            # Обновление анкеты
+            create_profile = await database.update_profile(session, profile_info)
+
 
         # Если произошла ошибка в создании анкеты
         if create_profile['response'] is False:
@@ -127,6 +165,7 @@ async def registration(
             error = str(create_profile['error'])
             error_message = error.replace('/', '-')
 
+            # Переадресация
             response = RedirectResponse(url=f'/error-creation/{user_id}/{username}/{error_message}', status_code=301)
             return response
 
@@ -147,7 +186,7 @@ async def registration(
         # Обработка сообщения об ошибке
         error_message = str(error).replace('/', '-')
 
-        # Создаем объект переадресации
+        # Переадресация
         response = RedirectResponse(url=f'/error/{user_id}/{username}/{error_message}', status_code=301)
         return response
 
@@ -158,16 +197,23 @@ async def success(
     status,
     request: Request
 ):
-
+    
     if status == 'created':
-        return templates.TemplateResponse(
-            request=request, name='success_creation.html'
-        )
-
+        title = 'Ваша анкета успешно создана!'
     elif status == 'updated':
-        return templates.TemplateResponse(
-            request=request, name="success_update.html"
-        )
+        title = 'Ваша анкета успешно обновлена!'
+    
+    # Данные для шаблона
+    context = {
+        'request': request,
+        'title': title,
+        'message': None
+    }
+
+    return templates.TemplateResponse(
+        'success_page.html',
+        context
+    )
 
 
 # Страница при ошибки регистрации или редактировании анкеты
@@ -179,21 +225,24 @@ async def error(
     error_message,
     request: Request
 ):
-
-    if status == 'creation':
-        return templates.TemplateResponse(
-            request=request,
-            name="error_creation.html",
-            context={'error_message': error_message, 'user_id': user_id, 'username': username}
-        )
-
-    elif status == 'update':
-        return templates.TemplateResponse(
-            request=request,
-            name="error_update.html",
-            context={'error_message': error_message, 'user_id': user_id, 'username': username}
-        )
     
+    if status == 'creation':
+        error_title = 'Не удалось создать анкету'
+    elif status == 'update':
+        error_title = 'Не удалось обновить анкету'
+    
+    # Данные для шаблона
+    context = {
+        'request': request,
+        'error_title': error_title,
+        'error_message': error_message
+    }
+
+    return templates.TemplateResponse(
+        'error.html',
+        context
+    )
+
 
 # Страница при любой ошибке
 @app.get('/error/{user_id}/{username}/{error_message}')
@@ -204,10 +253,16 @@ async def another_errors(
     request: Request
 ):
 
+    # Данные для шаблона
+    context = {
+        'request': request,
+        'error_title': None,
+        'error_message': error_message
+    }
+
     return templates.TemplateResponse(
-        request=request,
-        name="error.html",
-        context={'error_message': error_message, 'user_id': user_id, 'username': username}
+        'error.html',
+        context
     )
 
 
@@ -231,21 +286,71 @@ async def start_edit_profile(
 ):
 
     # Получение данных о пользователе
-    data = await database.get_profile_information(session, user_id)
+    profile_info = await database.get_profile_information(session, user_id)
 
-    if data is None:
+    if profile_info is None:
         error_message = 'Такой анкеты не существует'
 
-        # Создаем объект переадресации
-        response = RedirectResponse(url=f'/error/{user_id}/{username}/{error_message}', status_code=301)
-        return response
+        # Данные для шаблона
+        context = {
+            'request': request,
+            'error_title': None,
+            'error_message': error_message
+        }
+
+        return templates.TemplateResponse(
+            "error.html",
+            context
+        )
+    
+    elif profile_info.status == 'banned' or profile_info.status == 'blocked':
+        # Словарь с ошибками
+        error_messages = {
+            'banned': app_texts.BANNED,
+            'blocked': app_texts.BLOCKED,
+        }
+
+        # Проверка статуса анкеты и установка сообщения об ошибке
+        error_message = error_messages.get(profile_info.status)
+
+        # Данные для шаблона
+        context = {
+            'request': request,
+            'error_title': None,
+            'error_message': error_message
+        }
+
+        return templates.TemplateResponse(
+            "error.html",
+            context
+        )
+    
+    elif profile_info.status not in ['open', 'closed', 'canceled', 'wait']:
+
+        error_message = app_texts.SUPPORT_TEXT
+
+        # Данные для шаблона
+        context = {
+            'request': request,
+            'error_title': None,
+            'error_message': error_message
+        }
+
+        return templates.TemplateResponse(
+            "error.html",
+            context
+        )
+
 
     context = {
         "request": request,
-        "data": data
+        "profile_info": profile_info
     }
 
-    return templates.TemplateResponse("edit_profile.html", context)
+    return templates.TemplateResponse(
+        "edit_profile.html",
+        context
+    )
 
 
 # Отправка данных для изменения анкеты
@@ -268,7 +373,7 @@ async def edit_profile(
 
     try:
         # Получение данных о пользователе
-        user_info = await database.get_profile_information(session, user_id)
+        profile_info = await database.get_profile_information(session, user_id)
 
         # Если были загружены фото
         new_photos = None
@@ -323,12 +428,12 @@ async def edit_profile(
             # Если обновлено только главное фото
             elif main_photo_info:
                 # Добавление фото в массив в качестве первого элемента
-                new_photos = [main_photo_info['photo_name']] + user_info.photos[1:]
+                new_photos = [main_photo_info['photo_name']] + profile_info.photos[1:]
 
             # Если обновлены только прочие фото
             elif more_photo_names:
                 # Добавление в массив фото после первого фото
-                new_photos = [user_info.photos[0]] + more_photo_names
+                new_photos = [profile_info.photos[0]] + more_photo_names
 
 
         # Добавление данных о пользователе в словарь

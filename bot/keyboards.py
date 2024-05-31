@@ -48,13 +48,55 @@ async def menu_keyboard(status):
 async def profile_keyboard(id, more_photo= False, next_photo_num= 1):
     markup = [
         [
+            # InlineKeyboardButton(text= '❌ Не нравится', callback_data= f'rate dislike {id}'),
             InlineKeyboardButton(text= '❤️ Нравится', callback_data= f'rate like {id}'),
-            InlineKeyboardButton(text= '❌ Не нравится', callback_data= f'rate dislike {id}')
+            InlineKeyboardButton(text= '💖 Супер лайк', callback_data= f'rate superlike_preview {id}')
         ],
         [
-            InlineKeyboardButton(text= '❕ Жалоба', callback_data= f'warn {id}'),
-            InlineKeyboardButton(text= '🏠 Меню', callback_data= 'menu')
+            # InlineKeyboardButton(text= '❕ Жалоба', callback_data= f'warn {id}'),
+            InlineKeyboardButton(text= '🏠 Меню', callback_data= 'menu'),
+            InlineKeyboardButton(text= 'Далее ➡️', callback_data= f'rate dislike {id}'),
         ]
+    ]
+    if more_photo:
+        markup.insert(0,[InlineKeyboardButton(text= '📸 Смотреть еще фото', callback_data= f'check_photo {id} {next_photo_num}')])
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard= markup)
+    return keyboard
+
+
+# Клавиатура для просмотра анкет
+async def superlike_keyboard(id):
+    markup = [
+        [
+            # InlineKeyboardButton(text= '❌ Не нравится', callback_data= f'rate dislike {id}'),
+            InlineKeyboardButton(text= 'Оплатить с баланса репки 🎃', callback_data= f'rate superlike {id}')
+        ],
+        [
+            InlineKeyboardButton(text= 'Заработать 🎃', callback_data= f'referral_program')
+        ],
+        [
+            # InlineKeyboardButton(text= '❕ Жалоба', callback_data= f'warn {id}'),
+            InlineKeyboardButton(text= '🏠 Меню', callback_data= 'menu'),
+            InlineKeyboardButton(text= 'Далее ➡️', callback_data= f'rate dislike {id}'),
+        ]
+    ]
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard= markup)
+    return keyboard
+
+
+# Клавиатура для ответа на лайк
+async def profile_after_like_keyboard(id, more_photo= False, next_photo_num= 1):
+    markup = [
+        [
+            InlineKeyboardButton(text= '❌ Не нравится', callback_data= f'who_liked_me dislike {id}'),
+            InlineKeyboardButton(text= '❤️ Нравится', callback_data= f'who_liked_me like {id}')
+        ]
+        # [
+        #     InlineKeyboardButton(text= '❕ Жалоба', callback_data= f'warn {id}'),
+        #     InlineKeyboardButton(text= '🏠 Меню', callback_data= 'menu')
+        # ]
     ]
     if more_photo:
         markup.insert(0,[InlineKeyboardButton(text= '📸 Смотреть еще фото', callback_data= f'check_photo {id} {next_photo_num}')])
@@ -77,25 +119,6 @@ async def recreate_keyboard(user_id, username):
     return keyboard
 
 
-# Клавиатура для ответа на лайк
-async def profile_after_like_keyboard(id, more_photo= False, next_photo_num= 1):
-    markup = [
-        [
-            InlineKeyboardButton(text= '❤️ Нравится', callback_data= f'who_liked_me like {id}'),
-            InlineKeyboardButton(text= '❌ Не нравится', callback_data= f'who_liked_me dislike {id}')
-        ],
-        [
-            InlineKeyboardButton(text= '❕ Жалоба', callback_data= f'warn {id}'),
-            InlineKeyboardButton(text= '🏠 Меню', callback_data= 'menu')
-        ]
-    ]
-    if more_photo:
-        markup.insert(0,[InlineKeyboardButton(text= '📸 Смотреть еще фото', callback_data= f'check_photo {id} {next_photo_num}')])
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard= markup)
-    return keyboard
-
-
 # Клавиатура для проверки созданных анкет
 async def check_waited_profiles(id, username, more_photo= False, next_photo_num= 1):
     markup = [
@@ -104,6 +127,9 @@ async def check_waited_profiles(id, username, more_photo= False, next_photo_num=
         ],
         [
             InlineKeyboardButton(text= '❌ Отклонить', callback_data= f'cancel_profile {id} {username}'),
+        ],
+        [
+            InlineKeyboardButton(text= '🔐 Забанить навсегда', callback_data= f'ban {id}'),
         ]
     ]
     if more_photo:
@@ -126,17 +152,6 @@ async def check_blocked_profiles(id, more_photo= False, next_photo_num= 1):
     if more_photo:
         markup.insert(0,[InlineKeyboardButton(text= '📸 Смотреть еще фото', callback_data= f'photo_verification {id} {next_photo_num} blocked')])
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard= markup)
-    return keyboard
-
-
-# Клавиатура для пересоздания анкет после отклонения админами
-async def recreate_keyboard_by_admins(user_id, username):
-    markup = [
-        [
-            InlineKeyboardButton(text='❤️ Изменить анкету', url=f'https://click-love.ru/registration/{user_id}/{username}')
-        ]
-    ]
     keyboard = InlineKeyboardMarkup(inline_keyboard= markup)
     return keyboard
 
@@ -288,6 +303,9 @@ referrals_keyboard = [
         InlineKeyboardButton(text= '👨‍👧‍👦 Пригласить друзей', callback_data= 'invite'),
     ],
     [
+        InlineKeyboardButton(text= 'Что такое 🎃РЕПКА?', callback_data= 'repka_about'),
+    ],
+    [
         InlineKeyboardButton(text= '🏠 Меню', callback_data= 'menu'),
     ],
     [
@@ -295,3 +313,21 @@ referrals_keyboard = [
     ]
 ]
 referrals_keyboard = InlineKeyboardMarkup(inline_keyboard= referrals_keyboard)
+
+# Клавиатура реферальной системы
+repka_keyboard = [
+    [
+        InlineKeyboardButton(text= 'Сайт 🎃РЕПКИ', url= 'https://p2pbot.pro/repka'),
+    ],
+    [
+        InlineKeyboardButton(text= '👨‍👧‍👦 Пригласить друзей', callback_data= 'invite'),
+    ],
+    [
+        InlineKeyboardButton(text= '🏠 Меню', callback_data= 'menu'),
+        InlineKeyboardButton(text= '💳 Баланс', callback_data= 'referral_program'),
+    ],
+    [
+        InlineKeyboardButton(text= '❤️ Смотреть анкеты', callback_data= 'check_profiles')
+    ]
+]
+repka_keyboard = InlineKeyboardMarkup(inline_keyboard= repka_keyboard)

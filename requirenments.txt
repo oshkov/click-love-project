@@ -6,3 +6,4 @@ asyncpg==0.29.0
 uvicorn==0.27.0.post1
 fastapi==0.109.2
 pillow==9.2.0
+pyrepka==1.0.1

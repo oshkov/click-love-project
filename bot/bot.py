@@ -1,9 +1,9 @@
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto, Update
+from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
 from aiogram.fsm.context import FSMContext
+from pyrepka import PyRepka
 
 from bot.database import DataBase
-from bot.referral_program import PyRepka
 import bot.keyboards as keyboards
 import bot.messages as messages
 import bot.admin_panel as admin_panel
@@ -58,7 +58,7 @@ async def menu_command_handler(message: Message, state: FSMContext):
             elif profile.status == 'canceled':
                 await message.answer(
                     messages.CANCELED,
-                    reply_markup= await keyboards.recreate_keyboard_by_admins(message.from_user.id, message.from_user.username)
+                    reply_markup= await keyboards.recreate_keyboard(message.from_user.id, message.from_user.username)
                 )
                 return
             
@@ -209,7 +209,7 @@ async def myprofile_command_handler(message: Message, state: FSMContext):
                 elif profile.status == 'canceled':
                     await message.answer(
                         messages.CANCELED,
-                        reply_markup= await keyboards.recreate_keyboard_by_admins(message.from_user.id, message.from_user.username)
+                        reply_markup= await keyboards.recreate_keyboard(message.from_user.id, message.from_user.username)
                     )
                     return
                 
@@ -326,7 +326,7 @@ async def profiles_command_handler(message: Message, state: FSMContext):
                 elif my_profile.status == 'canceled':
                     await message.answer(
                         messages.CANCELED,
-                        reply_markup= await keyboards.recreate_keyboard_by_admins(message.from_user.id, message.from_user.username)
+                        reply_markup= await keyboards.recreate_keyboard(message.from_user.id, message.from_user.username)
                     )
                     return
 
@@ -786,6 +786,36 @@ async def check_profiles_handler(callback: CallbackQuery, state: FSMContext):
         )
 
 
+# Просмотр суперлайка
+@dp.callback_query(F.data.contains('superlike_preview'))
+async def superlike_preview_handler(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
+    await state.clear()
+
+    # Получение оценки
+    mark = callback.data.split()[1]
+    profile_id = callback.data.split()[2]
+
+    try:
+        # Получение баланса пользователя
+        balance = referral_program.get_user_balance(callback.from_user.id)
+
+        # Всплывающее окно с описанием суперлайка
+        await callback.answer(
+            await messages.SUPERLIKE_ABOUT(balance.text),
+            show_alert=True
+        )
+
+        # Изменение клавиатуры под анкетой с предложением оплатить суперлайк
+        await callback.message.edit_caption(
+            caption= callback.message.caption,
+            reply_markup= await keyboards.superlike_keyboard(profile_id),
+            caption_entities= callback.message.caption_entities
+        )
+    except Exception as error:
+        print(f'superlike_preview_handler() error: {error}')
+
+
 # Лайк/дизлайк
 @dp.callback_query(F.data.contains('rate'))
 async def like_dislike_handler(callback: CallbackQuery, state: FSMContext):
@@ -799,12 +829,42 @@ async def like_dislike_handler(callback: CallbackQuery, state: FSMContext):
     # Создание сессии
     try:
         async for session in database.get_session():
-            await database.like_or_dislike_profile(session, callback.from_user.id, profile_id, mark)
+            # Если суперлайк
+            if mark == 'superlike':
+                # Списывание денег за суперлайк
+                response = referral_program.purchase(callback.from_user.id, config.SUPERLIKE_PRICE, 'Тест суперлайка')
+
+                # Проверка ответа на списывание денег за суперлайк
+                if response.status_code == 200:
+                    # В случае успешной оплаты добавление оценки в бд
+                    await database.like_or_dislike_profile(session, callback.from_user.id, profile_id, mark)
+
+                    # Пополнение баланса тому, кому ставят лайк
+                    referral_program.replenishment(profile_id, config.SUPERLIKE_PRICE, 'Суперлайк')
+
+                    # Получение данных о своей анкете
+                    my_profile = await database.get_profile_information(session, callback.from_user.id)
+
+                else:
+                    # В случае ошибки вывод сообщения о нехватке средств
+                    await callback.answer(
+                        messages.NO_MONEY,
+                        show_alert= True
+                    )
+
+                    # Открытие реферальной системы
+                    await referral_program_handler(callback, state)
+                    return
+            
+            # При лайке и дизлайке
+            else:
+                await database.like_or_dislike_profile(session, callback.from_user.id, profile_id, mark)
 
     except Exception as error:
         print(f'like_dislike_handler() Session error: {error}')
 
     try:
+        # Лайк
         if mark == 'like':
             # К тексту анкеты добавляется оценка и убирается клавиатура
             await callback.message.edit_caption(
@@ -820,59 +880,32 @@ async def like_dislike_handler(callback: CallbackQuery, state: FSMContext):
                 reply_markup= await keyboards.show_profile_keyboard(callback.from_user.id)
             )
 
+        # Суперлайк
+        elif mark == 'superlike':
+            # К тексту анкеты добавляется оценка и убирается клавиатура
+            await callback.message.edit_caption(
+                caption= f'Вы поставили суперлайк 💖\n\n{callback.message.caption}',
+                reply_markup= None
+            )
+
+            # Уведомление пользователю о суперлайке
+            await bot.send_photo(
+                chat_id= profile_id,
+                photo= FSInputFile(f'photos/{my_profile.photos[0]}'),
+                caption= f'<b>🎁 Пришел подарок!</b> Этот пользователь поставил вам 💖 суперлайк. Вам начислено {config.SUPERLIKE_PRICE} р. на баланс репки. Вы можете написать @{my_profile.username} и отблагодарить!\nБаланс репки пополнен на {config.SUPERLIKE_PRICE}р.\n\n{await messages.PROFILE_TEXT(my_profile.name, my_profile.age, my_profile.city, my_profile.about, my_profile.target)}',
+                parse_mode= 'HTML'
+            )
+
+        # Дизлайк/Далее
         elif mark == 'dislike':
             # К тексту анкеты добавляется оценка и убирается клавиатура
             await callback.message.edit_caption(
                 caption= f'Вам не понравилась эта анкета 💔\n\n{callback.message.caption}',
                 reply_markup= None
             )
+
     except Exception as error:
         print(f'like_dislike_handler() error: {error}')
-
-    # Показ новой анкеты
-    await check_profiles_handler(callback, state)
-
-
-# Жалоба
-@dp.callback_query(F.data.contains('warn'))
-async def warn_handler(callback: CallbackQuery, state: FSMContext):
-    # Сброс состояния при его налиции
-    await state.clear()
-
-    profile_id = callback.data.split()[1]
-
-    # Создание сессии
-    try:
-        async for session in database.get_session():
-            new_warns_amount = await database.make_warn(session, callback.from_user.id, profile_id)
-
-            await callback.answer(
-                messages.MAKE_WARN,
-                show_alert= True
-            )
-
-            try:
-                # Если количество жалоб = 3, то аккаунт замораживается и отправляется на проверку
-                if new_warns_amount == 3:
-                    # Уведомление админам
-                    await database.notify_admins(session, bot, '❕ +1 анкета на проверку')
-
-                    # Уведомление пользователю
-                    await bot.send_photo(
-                        chat_id= profile_id,
-                        photo= FSInputFile('bot/design/blocked.jpeg'),
-                        caption= messages.BLOCKED,
-                        parse_mode= 'html'
-                    )
-            except Exception as error:
-                print(f'warn_handler() error: {error}')
-
-    except Exception as error:
-        print(f'warn_handler() Session error: {error}')
-
-    try:
-        await bot.delete_message(callback.message.chat.id, callback.message.message_id)
-    except: pass
 
     # Показ новой анкеты
     await check_profiles_handler(callback, state)
@@ -930,6 +963,15 @@ async def referrals_command_handler(message: Message, state: FSMContext):
         )
         return
     
+    # Создание сессии
+    try:
+        async for session in database.get_session():
+            # Получение данных об анкете
+            profile = await database.get_profile_information(session, message.from_user.id)
+
+    except Exception as error:
+        print(f'menu_command_handler() Session error: {error}')
+    
     try:
         # Добавление в реферальную систему (Репка)
         print(referral_program.add_user_to_ref(
@@ -938,6 +980,28 @@ async def referrals_command_handler(message: Message, state: FSMContext):
             message.from_user.last_name,
             message.from_user.username
         ))
+
+        # Проверка на наличие анкеты
+        if profile:
+            # Проверка на бан
+            if profile.status == 'banned':
+                await message.answer(messages.BANNED)
+                return
+
+            elif profile.status == 'canceled':
+                await message.answer(
+                    messages.CANCELED,
+                    reply_markup= await keyboards.recreate_keyboard(message.from_user.id, message.from_user.username)
+                )
+                return
+
+        # Если анкеты нет
+        else:
+            await message.answer(
+                messages.NO_PROFILE,
+                reply_markup= await keyboards.registrate(message.from_user.id, message.from_user.username)
+            )
+            return
 
         referral_data = referral_program.get_referral_users(message.from_user.id)
 
@@ -959,12 +1023,12 @@ async def referral_program_handler(callback: CallbackQuery, state: FSMContext):
 
     try:
         # Добавление в реферальную систему (Репка)
-        print(referral_program.add_user_to_ref(
+        referral_program.add_user_to_ref(
             callback.from_user.id,
             callback.from_user.first_name,
             callback.from_user.last_name,
             callback.from_user.username
-        ))
+        )
 
         referral_data = referral_program.get_referral_users(callback.from_user.id)
 
@@ -975,6 +1039,22 @@ async def referral_program_handler(callback: CallbackQuery, state: FSMContext):
                 parse_mode='HTML'
             ),
             reply_markup= keyboards.referrals_keyboard
+        )
+    except Exception as error:
+        print(f'referral_program_handler() error: {error}')
+
+
+# Подробнее о репке
+@dp.callback_query(F.data == 'repka_about')
+async def repka_about_handler(callback: CallbackQuery, state: FSMContext):
+    # Сброс состояния при его налиции
+    await state.clear()
+
+    try:
+        await callback.message.edit_caption(
+            caption= messages.REPKA_INFO,
+            parse_mode= 'html',
+            reply_markup= keyboards.repka_keyboard
         )
     except Exception as error:
         print(f'referral_program_handler() error: {error}')

@@ -79,8 +79,8 @@ button#back_to_bot {
     margin: 0;
 }
 
-button#recreate_form {
-    margin: 0 0 20px 0;
+button#support {
+    margin: 20% 0 20px 0;
 }
 
 p.error {

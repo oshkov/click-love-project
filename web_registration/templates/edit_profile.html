@@ -18,14 +18,14 @@
 
         <div class="form_block" id="username_form">
             <h2 class="for_input">Имя:</h2>
-            <input type="text" placeholder="Имя" id="username_input" class="write" name="name" autocomplete="off" value="{{ data.name }}">
+            <input type="text" placeholder="Имя" id="username_input" class="write" name="name" autocomplete="off" value="{{ profile_info.name }}">
             <p class="error" id="error_username"></p>
         </div>
 
 
         <div class="form_block" id="age_form">
             <h2 class="for_input">Возраст:</h2>
-            <input type="number" placeholder="Возраст" step="1" min="18" max="80" id="age_input" class="write" name="age" autocomplete="off"  value="{{ data.age }}">
+            <input type="number" placeholder="Возраст" step="1" min="18" max="80" id="age_input" class="write" name="age" autocomplete="off"  value="{{ profile_info.age }}">
             <p class="error" id="error_age"></p>
         </div>
 
@@ -34,11 +34,11 @@
             <h2 class="for_input">Пол:</h2>
             <div id="gender_type">
                 <div class="form_radio_btn" id="gender">
-                    <input type="radio" name="gender" value="Мужчина" id="input_male" class="radio" {% if data.gender == "Мужчина" %} checked {% endif %}>
+                    <input type="radio" name="gender" value="Мужчина" id="input_male" class="radio" {% if profile_info.gender == "Мужчина" %} checked {% endif %}>
                     <label for="input_male">💁‍♂️ Мужской</label>
                 </div>
                 <div class="form_radio_btn" id="gender">
-                    <input type="radio" name="gender" value="Женщина" id="input_female" class="radio" {% if data.gender == "Женщина" %} checked {% endif %}>
+                    <input type="radio" name="gender" value="Женщина" id="input_female" class="radio" {% if profile_info.gender == "Женщина" %} checked {% endif %}>
                     <label for="input_female">💁‍♀️ Женский</label>
                 </div>
             </div>
@@ -49,7 +49,7 @@
         <div class="form_block" id="city_form">
             <h2 class="for_input">Город:</h2>
             <div class="autocomplete">
-                <input type="text" id="city_input" placeholder="Введите город" class="write" name="city" autocomplete="off" value="{{ data.city }}">
+                <input type="text" id="city_input" placeholder="Введите город" class="write" name="city" autocomplete="off" value="{{ profile_info.city }}">
                 <div class="autocomplete-items"></div>
             </div>
             <p class="error" id="error_city"></p>
@@ -60,15 +60,15 @@
             <h2 class="for_input">❤️ С кем хочешь знакомиться?</h2>
             <div id="preferences_type">
                 <div class="form_radio_btn" id="prefer">
-                    <input type="radio" id="input_with_male" class="radio" name="preferences" value="С мужчинами" {% if data.preferences == "С мужчинами" %} checked {% endif %}>
+                    <input type="radio" id="input_with_male" class="radio" name="preferences" value="С мужчинами" {% if profile_info.preferences == "С мужчинами" %} checked {% endif %}>
                     <label for="input_with_male">С мужчинами</label>
                 </div>
                 <div class="form_radio_btn" id="prefer">
-                    <input type="radio" id="input_with_female" class="radio" name="preferences" value="С женщинами" {% if data.preferences == "С женщинами" %} checked {% endif %}>
+                    <input type="radio" id="input_with_female" class="radio" name="preferences" value="С женщинами" {% if profile_info.preferences == "С женщинами" %} checked {% endif %}>
                     <label for="input_with_female">С женщинами</label>
                 </div>
                 <div class="form_radio_btn" id="prefer">
-                    <input type="radio" id="input_with_everyone" class="radio" name="preferences" value="Со всеми" {% if data.preferences == "Со всеми" %} checked {% endif %}>
+                    <input type="radio" id="input_with_everyone" class="radio" name="preferences" value="Со всеми" {% if profile_info.preferences == "Со всеми" %} checked {% endif %}>
                     <label for="input_with_everyone">Со всеми</label>
                 </div>
             </div>
@@ -81,23 +81,23 @@
             <p>Можно выбрать несколько или оставить пустым</p>
             <div id="target_type">
                 <div class="form_radio_btn" id="target">
-                    <input type="checkbox" name="target" value="Общение" id="communication" class="radio" {% if data.target %} {% if "Общение" in data.target %} checked {% endif %} {% endif %}>
+                    <input type="checkbox" name="target" value="Общение" id="communication" class="radio" {% if profile_info.target %} {% if "Общение" in profile_info.target %} checked {% endif %} {% endif %}>
                     <label for="communication">Общение</label>
                 </div>
                 <div class="form_radio_btn" id="target">
-                    <input type="checkbox" name="target" value="Вечеринка" id="party" class="radio" {% if data.target %} {% if "Вечеринка" in data.target %} checked {% endif %} {% endif %}>
+                    <input type="checkbox" name="target" value="Вечеринка" id="party" class="radio" {% if profile_info.target %} {% if "Вечеринка" in profile_info.target %} checked {% endif %} {% endif %}>
                     <label for="party">Вечеринка</label>
                 </div>
                 <div class="form_radio_btn" id="target">
-                    <input type="checkbox" name="target" value="Встреча 18+" id="18+" class="radio" {% if data.target %} {% if "Встреча 18+" in data.target %} checked {% endif %} {% endif %}>
+                    <input type="checkbox" name="target" value="Встреча 18+" id="18+" class="radio" {% if profile_info.target %} {% if "Встреча 18+" in profile_info.target %} checked {% endif %} {% endif %}>
                     <label for="18+">Встреча 18+</label>
                 </div>
                 <div class="form_radio_btn" id="target">
-                    <input type="checkbox" name="target" value="Свидание" id="date" class="radio" {% if data.target %} {% if "Свидание" in data.target %} checked {% endif %} {% endif %}>
+                    <input type="checkbox" name="target" value="Свидание" id="date" class="radio" {% if profile_info.target %} {% if "Свидание" in profile_info.target %} checked {% endif %} {% endif %}>
                     <label for="date">Свидание</label>
                 </div>
                 <div class="form_radio_btn" id="target">
-                    <input type="checkbox" name="target" value="Серьезные отношения" id="serious" class="radio" {% if data.target %} {% if "Серьезные отношения" in data.target %} checked {% endif %} {% endif %}>
+                    <input type="checkbox" name="target" value="Серьезные отношения" id="serious" class="radio" {% if profile_info.target %} {% if "Серьезные отношения" in profile_info.target %} checked {% endif %} {% endif %}>
                     <label for="serious">Серьезные отношения</label>
                 </div>
             </div>
@@ -115,9 +115,9 @@
                 </label>
                 <p class="error" id="error_photo"></p>
                 <div id="preview_imgs_main">
-                    {% if data.photos %}
+                    {% if profile_info.photos %}
                     <div class="image_block" id="image_block1">
-                        <img src="{{ url_for('photos', path=data.photos[0]) }}" name="{{ data.photos[0] }}">
+                        <img src="{{ url_for('photos', path=profile_info.photos[0]) }}" name="{{ profile_info.photos[0] }}">
                     </div>
                     {% endif %}
                 </div>
@@ -130,7 +130,7 @@
                     <span class="input-file-btn" id="input-file-btn">Загрузить другие фото</span>
                 </label>
                 <div id="preview_imgs_more">
-                    {% for photo in data.photos[1:] %}
+                    {% for photo in profile_info.photos[1:] %}
                     <div class="image_block" id="image_block{{ loop.index }}">
                         <img src="{{ url_for('photos', path=photo) }}" name="{{ photo }}">
                     </div>
@@ -143,7 +143,7 @@
         <div class="form_block" id="about_form">
             <h2 class="for_input">Информацию о себе:</h2>
             <p>Можно оставить пустым</p>
-            <textarea placeholder="О себе" id="about_input" class="write" rows="6" maxlength="300" name="about" autocomplete="off">{{ data.about if data.about is not none }}</textarea>
+            <textarea placeholder="О себе" id="about_input" class="write" rows="6" maxlength="300" name="about" autocomplete="off">{{ profile_info.about if profile_info.about is not none }}</textarea>
             <p class="error" id="error_about"></p>
 
             <div class="agreement_block">

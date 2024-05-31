@@ -12,7 +12,8 @@
 
         <div class="corbots_logo" id="corbots_logo">
             <h1>КЛИК-БОТ ❤️</h1>
-            <h2>Ваша анкета успешно создана!</h2>
+            <h2>{% if title %}{{ title }}{% endif %}</h2>
+            <p>{% if message %}{{ message }}{% endif %}</p>
         </div>
 
         <a href="https://t.me/clicklove_bot">

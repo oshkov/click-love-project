@@ -474,7 +474,7 @@ async def cancel_profile_handler(callback: CallbackQuery, state: FSMContext):
                 chat_id= profile_id,
                 photo= FSInputFile('bot/design/canceled_profile.jpeg'),
                 caption= messages.CANCELED,
-                reply_markup= await keyboards.recreate_keyboard_by_admins(profile_id, username)
+                reply_markup= await keyboards.recreate_keyboard(profile_id, username)
             )
         except:
             pass
@@ -521,7 +521,7 @@ async def unblock_profile_handler(callback: CallbackQuery, state: FSMContext):
         print(f'unblock_profile_handler error: {error}')
 
 
-# Разблокировка анкеты 
+# Блокировка анкеты 
 @router_admin.callback_query(F.data.contains('ban'))
 async def ban_profile_handler(callback: CallbackQuery, state: FSMContext):
     # Сброс состояния при его наличии

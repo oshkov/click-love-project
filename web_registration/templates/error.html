@@ -12,9 +12,13 @@
 
         <div class="corbots_logo" id="corbots_logo">
             <h1>КЛИК-БОТ ❤️</h1>
-            <h2>Произошла ошибка!</h2>
-            <p>Ошибка: {{ error_message }}</p>
+            <h2>Произошла ошибка! {% if error_title %}{{ error_title }}{% endif %}</h2>
+            <p>{{ error_message }}</p>
         </div>
+
+        <a href="https://t.me/managerbotstg">
+            <button id="support" type="button">Тех. поддержка</button>
+        </a>
 
         <a href="https://t.me/clicklove_bot">
             <button id="back_to_bot" type="button">Вернуться в бота</button>

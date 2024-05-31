@@ -33,8 +33,8 @@ class DataBase:
             # Создание записи в бд, если ее не было
             if user_in_db is None:
 
-                year_sub = datetime.datetime.now(pytz.timezone('Europe/Moscow')) + datetime.timedelta(days=365)
-                year_sub_status = 'Годовая подписка'
+                # year_sub = datetime.datetime.now(pytz.timezone('Europe/Moscow')) + datetime.timedelta(days=365)
+                # year_sub_status = 'Годовая подписка'
 
                 user_info = UserModel(
                     enter = datetime.datetime.now(pytz.timezone('Europe/Moscow')),
@@ -44,8 +44,8 @@ class DataBase:
                     lastname = message.from_user.last_name,
                     last_action = None,
                     ban_status = None,
-                    sub_status = year_sub_status,
-                    sub_end_date = year_sub,
+                    sub_status = None,
+                    sub_end_date = None,
                     referrals = 0,
                     invited_by = None,
                     agreement = 0,
@@ -274,13 +274,13 @@ class DataBase:
                 )
             disliked_one_minute_ids = [row for row in execute.scalars()]
 
-            # Получение списка id, кому ставил лайк и предупреждение
+            # Получение списка id, кому ставил лайк, суперлайк и предупреждение
             execute = await session.execute(
                 select(ActionModel.id_receiver)
                     .where(
                         and_(
                             ActionModel.id_creator == my_id,
-                            ActionModel.status.in_(['like', 'warn'])
+                            ActionModel.status.in_(['like', 'warn', 'superlike'])
                         )
                     )
                 )
